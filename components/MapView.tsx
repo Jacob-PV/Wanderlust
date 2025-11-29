@@ -1,230 +1,228 @@
-/**
- * MapView Component
- *
- * Interactive Leaflet map displaying all itinerary locations with numbered, color-coded markers.
- *
- * Features:
- * - Displays all activities on an OpenStreetMap-based interactive map
- * - Numbered markers (1, 2, 3...) matching itinerary order
- * - Color-coded markers by activity type
- * - Clickable markers with popups (name, type, time)
- * - Auto-fit bounds to show all markers
- * - Client-side only rendering (prevents SSR issues with Leaflet)
- *
- * Technical Details:
- * - Uses Leaflet library for map rendering
- * - Custom DivIcon markers for numbered circles
- * - OpenStreetMap tiles (free, no API key required)
- * - Client-side rendering flag prevents hydration errors
- *
- * @param props - Component props
- * @param props.itinerary - Complete itinerary with city and activities
- *
- * @example
- * <MapView itinerary={generatedItinerary} />
- */
-
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Itinerary, ItineraryItem } from '@/types';
 
 interface MapViewProps {
-  /** Complete itinerary object containing city and all activities */
   itinerary: Itinerary;
 }
 
-/**
- * Color mapping for activity types (hex colors for markers)
- *
- * Each activity type has a distinct color for easy visual differentiation on the map.
- * These colors match the Tailwind colors used in ItineraryDisplay badges.
- *
- * Colors:
- * - Restaurants: Orange (#f97316)
- * - Museums: Purple (#a855f7)
- * - Parks & Outdoors: Green (#22c55e)
- * - Nightlife & Bars: Pink (#ec4899)
- * - Shopping: Blue (#3b82f6)
- * - Historical Sites: Amber (#f59e0b)
- * - Entertainment: Red (#ef4444)
- * - Coffee Shops: Yellow (#eab308)
- * - Art Galleries: Indigo (#6366f1)
- * - Sports & Recreation: Teal (#14b8a6)
- */
+// Updated color scheme for Wanderlust Theme
 const activityTypeColors: Record<string, string> = {
-  'Restaurants': '#f97316',
-  'Museums': '#a855f7',
-  'Parks & Outdoors': '#22c55e',
-  'Nightlife & Bars': '#ec4899',
-  'Shopping': '#3b82f6',
-  'Historical Sites': '#f59e0b',
-  'Entertainment': '#ef4444',
-  'Coffee Shops': '#eab308',
-  'Art Galleries': '#6366f1',
-  'Sports & Recreation': '#14b8a6',
+  'Restaurants': '#f97316',  // coral
+  'Museums': '#a855f7',      // purple
+  'Parks & Outdoors': '#22c55e',  // green
+  'Nightlife & Bars': '#ec4899',  // pink
+  'Shopping': '#06b6d4',     // primary teal
+  'Historical Sites': '#f59e0b',  // amber
+  'Entertainment': '#ef4444',  // red
+  'Coffee Shops': '#eab308',  // yellow
+  'Art Galleries': '#6366f1',  // indigo
+  'Sports & Recreation': '#14b8a6',  // teal
 };
 
-/**
- * Get marker color for a given activity type
- *
- * @param type - Activity type string
- * @returns Hex color code for the marker
- */
 const getMarkerColor = (type: string): string => {
-  return activityTypeColors[type] || '#6b7280';  // Default to gray if type not found
+  return activityTypeColors[type] || '#6b7280';
 };
 
-/**
- * Create a custom numbered marker icon
- *
- * Generates a Leaflet DivIcon with a colored circle and number inside.
- * The marker appearance is created using inline HTML/CSS.
- *
- * @param number - Marker number (1, 2, 3, etc.)
- * @param color - Background color (hex code)
- * @returns Leaflet DivIcon for use in Marker component
- */
+// Enhanced numbered marker with gradient and shadow
 const createNumberedIcon = (number: number, color: string) => {
   return L.divIcon({
-    className: 'custom-marker',  // CSS class for the marker (defined in globals.css)
+    className: 'custom-marker',
     html: `
       <div style="
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;                        /* Circular marker */
-        background-color: ${color};                /* Activity type color */
-        border: 3px solid white;                   /* White border for contrast */
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);    /* Drop shadow for depth */
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;                              /* White number text */
-        font-weight: bold;
-        font-size: 14px;
+        position: relative;
       ">
-        ${number}
+        <div style="
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%);
+          border: 3px solid white;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2), 0 0 0 4px ${color}22;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-weight: 800;
+          font-size: 16px;
+          font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+          transition: all 0.3s ease;
+        ">
+          ${number}
+        </div>
+        <div style="
+          position: absolute;
+          bottom: -8px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          border-left: 8px solid transparent;
+          border-right: 8px solid transparent;
+          border-top: 8px solid ${color};
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        "></div>
       </div>
     `,
-    iconSize: [32, 32],      // Size of the icon (width, height)
-    iconAnchor: [16, 16],    // Point of the icon which will correspond to marker's location (center)
-    popupAnchor: [0, -16],   // Point from which the popup should open relative to iconAnchor
+    iconSize: [40, 48],
+    iconAnchor: [20, 48],
+    popupAnchor: [0, -48],
   });
 };
 
-/**
- * FitBounds Component
- *
- * Automatically adjusts map zoom and center to fit all markers within view.
- * This ensures users can see all activities without manual panning/zooming.
- *
- * Uses Leaflet's fitBounds() method with padding for visual margin.
- *
- * @param props - Component props
- * @param props.items - Array of itinerary items with coordinates
- */
 function FitBounds({ items }: { items: ItineraryItem[] }) {
-  const map = useMap();  // Get Leaflet map instance from React Leaflet context
+  const map = useMap();
 
   useEffect(() => {
     if (items.length > 0) {
-      // Create bounding box from all item coordinates
       const bounds = L.latLngBounds(
         items.map((item) => [item.coordinates.lat, item.coordinates.lng])
       );
-
-      // Fit map to bounds with options:
-      // - padding: [50, 50] adds 50px margin on all sides
-      // - maxZoom: 14 prevents over-zooming on close activities
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
     }
   }, [items, map]);
 
-  return null;  // This component doesn't render anything visible
+  return null;
 }
 
-/**
- * MapView Component Implementation
- */
 export default function MapView({ itinerary }: MapViewProps) {
-  /**
-   * Client-side rendering flag
-   *
-   * Leaflet requires browser DOM APIs (window, document) that don't exist during
-   * server-side rendering. This flag ensures the map only renders on the client.
-   *
-   * Without this, Next.js would throw hydration errors during SSR.
-   */
   const [isClient, setIsClient] = useState(false);
 
-  // Calculate map center from first activity's coordinates
-  // Falls back to [0, 0] if no activities (shouldn't happen in practice)
   const center: [number, number] = [
     itinerary.itinerary[0]?.coordinates.lat || 0,
     itinerary.itinerary[0]?.coordinates.lng || 0,
   ];
 
-  // Set client flag after component mounts (client-side only)
-  // This prevents the map from rendering during SSR
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Show loading placeholder until client-side rendering is ready
   if (!isClient) {
     return (
-      <div className="w-full h-[500px] rounded-lg overflow-hidden shadow-lg border border-gray-200 bg-gray-100 flex items-center justify-center">
-        <p className="text-gray-500">Loading map...</p>
+      <div className="w-full h-[600px] rounded-3xl overflow-hidden shadow-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-pulse-soft mb-3">
+            <svg className="w-12 h-12 text-primary-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+          </div>
+          <p className="text-gray-600 font-medium">Loading map...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-[500px] rounded-lg overflow-hidden shadow-lg border border-gray-200">
+    <div className="w-full h-[600px] rounded-3xl overflow-hidden shadow-2xl border-2 border-white/50 backdrop-blur">
       <MapContainer
-        center={center}           // Initial map center
-        zoom={12}                  // Initial zoom level (1-18, higher = more zoomed in)
+        center={center}
+        zoom={12}
         className="w-full h-full"
-        scrollWheelZoom={true}     // Enable scroll wheel zoom
-        whenReady={() => {
-          // Map initialization callback (empty for now)
-          // Could be used for analytics or custom initialization
-        }}
+        scrollWheelZoom={true}
+        zoomControl={true}
       >
-        {/* OpenStreetMap tile layer - provides the map imagery */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          // {s} = subdomain (a, b, or c) for load balancing
-          // {z} = zoom level
-          // {x}, {y} = tile coordinates
         />
 
-        {/* Render a marker for each activity in the itinerary */}
         {itinerary.itinerary.map((item: ItineraryItem, index: number) => (
           <Marker
             key={index}
             position={[item.coordinates.lat, item.coordinates.lng]}
             icon={createNumberedIcon(index + 1, getMarkerColor(item.type))}
           >
-            {/* Popup appears when marker is clicked */}
-            <Popup>
-              <div style={{ padding: '8px' }}>
-                <h3 style={{ fontWeight: 'bold', marginBottom: '4px', fontSize: '14px' }}>
-                  {item.name}
-                </h3>
-                <p style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+            <Popup className="custom-popup">
+              <div style={{
+                padding: '12px',
+                minWidth: '200px',
+                fontFamily: "'Inter', system-ui, sans-serif",
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '8px',
+                }}>
+                  <div style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '8px',
+                    background: `linear-gradient(135deg, ${getMarkerColor(item.type)} 0%, ${getMarkerColor(item.type)}dd 100%)`,
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '800',
+                    fontSize: '12px',
+                    flexShrink: 0,
+                  }}>
+                    {index + 1}
+                  </div>
+                  <h3 style={{
+                    fontWeight: '700',
+                    fontSize: '16px',
+                    color: '#1f2937',
+                    margin: 0,
+                    lineHeight: '1.4',
+                  }}>
+                    {item.name}
+                  </h3>
+                </div>
+
+                <div style={{
+                  display: 'inline-block',
+                  padding: '4px 10px',
+                  borderRadius: '8px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  marginBottom: '8px',
+                  backgroundColor: `${getMarkerColor(item.type)}22`,
+                  color: getMarkerColor(item.type),
+                  border: `1.5px solid ${getMarkerColor(item.type)}44`,
+                }}>
                   {item.type}
+                </div>
+
+                <p style={{
+                  fontSize: '13px',
+                  color: '#6b7280',
+                  margin: '6px 0',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}>
+                  <svg style={{ width: '14px', height: '14px', flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {item.time}
                 </p>
-                <p style={{ fontSize: '12px', color: '#666' }}>{item.time}</p>
+
+                {item.estimatedCost !== undefined && (
+                  <p style={{
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    color: item.estimatedCost === 0 ? '#22c55e' : '#1f2937',
+                    margin: '6px 0 0 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}>
+                    <svg style={{ width: '14px', height: '14px', flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {item.estimatedCost === 0 ? 'Free' : `$${item.estimatedCost.toFixed(2)}/person`}
+                  </p>
+                )}
               </div>
             </Popup>
           </Marker>
         ))}
 
-        {/* Auto-fit bounds component - adjusts zoom to show all markers */}
         <FitBounds items={itinerary.itinerary} />
       </MapContainer>
     </div>

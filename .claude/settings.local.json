@@ -6,7 +6,8 @@
       "Bash(npm install:*)",
       "Bash(npm run build:*)",
       "Bash(npm run dev:*)",
-      "Bash(node --version:*)"
+      "Bash(node --version:*)",
+      "Bash(timeout 10 bash:*)"
     ],
     "deny": [],
     "ask": []

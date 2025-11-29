@@ -1,32 +1,46 @@
-# Travel Itinerary Generator
+# Wanderlust - Travel Itinerary Generator
 
-A full-stack web application that generates personalized travel itineraries using AI. Built with Next.js, TypeScript, Tailwind CSS, and powered by OpenAI's GPT models.
+A visually stunning, premium web application that generates personalized travel itineraries using AI. Built with Next.js, TypeScript, Tailwind CSS, Framer Motion, and powered by OpenAI's GPT models.
 
 ![Travel Itinerary Generator](https://img.shields.io/badge/Next.js-15-black?style=flat&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?style=flat&logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8?style=flat&logo=tailwindcss)
+![Framer Motion](https://img.shields.io/badge/Framer%20Motion-11-ff69b4?style=flat)
 
-## Features
+## ✨ Features
 
-- **AI-Powered Itinerary Generation**: Generate customized day itineraries using OpenAI's GPT models
+### Core Functionality
+- **AI-Powered Itinerary Generation**: Generate customized day itineraries using OpenAI's GPT-4o-mini
 - **Smart Travel Time Calculation**: Accounts for realistic travel time between locations with route optimization
 - **Budget Tracking & Cost Estimates**: Set your budget, specify travelers, and get per-activity cost estimates with budget tracking
 - **City Autocomplete**: Search for cities with autocomplete powered by OpenStreetMap Nominatim
-- **Interactive Map**: View all itinerary locations on an interactive Leaflet map with numbered markers
+- **Interactive Map**: View all itinerary locations on an interactive Leaflet map with enhanced custom markers
 - **Customizable Preferences**: Select from 10+ activity types including restaurants, museums, parks, and more
 - **Radius Selection**: Choose search radius from 2 to 20 miles
-- **Responsive Design**: Beautiful, mobile-friendly interface built with Tailwind CSS
-- **Real-time Loading States**: Visual feedback during itinerary generation
-- **Error Handling**: Comprehensive error handling for API failures
+
+### Premium UI/UX
+- **Wanderlust Theme**: Beautiful travel-inspired color palette (deep teal, warm coral, golden amber)
+- **Glassmorphism Design**: Modern glass-effect containers with backdrop blur
+- **Smooth Animations**: Page transitions, staggered list animations, and micro-interactions using Framer Motion
+- **Premium Typography**: Custom Google Fonts (Inter & Manrope) with optimized hierarchy
+- **Split-Screen Layout**: Elegant desktop layout with sticky map and scrollable itinerary
+- **Delightful Loading States**: Rotating messages, animated progress bars, and premium loading modal
+- **Enhanced Map Markers**: Gradient-filled numbered markers with custom popups
+- **Responsive Design**: Mobile-first approach with beautiful breakpoints for all screen sizes
+- **Icon Integration**: Lucide React icons throughout for visual clarity
+- **Premium Buttons & Cards**: Gradient backgrounds, hover effects, and shadow depth
 
 ## Tech Stack
 
 - **Framework**: Next.js 15 with App Router
 - **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Map**: Leaflet & React Leaflet
+- **Styling**: Tailwind CSS with custom design system
+- **Animations**: Framer Motion
+- **Icons**: Lucide React
+- **Map**: Leaflet & React Leaflet with custom markers
 - **Geocoding**: OpenStreetMap Nominatim API
 - **AI**: OpenAI API (GPT-4o-mini)
+- **Fonts**: Google Fonts (Inter & Manrope)
 - **Deployment**: Vercel-ready
 
 ## Prerequisites
@@ -219,11 +233,14 @@ Renders an interactive Leaflet map with numbered markers for each location.
 
 - [Next.js](https://nextjs.org/) - React framework
 - [TypeScript](https://www.typescriptlang.org/) - Type safety
-- [Tailwind CSS](https://tailwindcss.com/) - Styling
+- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+- [Framer Motion](https://www.framer.com/motion/) - Production-ready animation library
+- [Lucide React](https://lucide.dev/) - Beautiful icon library
 - [Leaflet](https://leafletjs.com/) - Interactive maps
 - [React Leaflet](https://react-leaflet.js.org/) - React wrapper for Leaflet
 - [OpenAI](https://openai.com/) - AI itinerary generation
 - [OpenStreetMap](https://www.openstreetmap.org/) - Free geocoding and maps
+- [Google Fonts](https://fonts.google.com/) - Inter & Manrope typefaces
 
 ## License
 

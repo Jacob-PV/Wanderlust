@@ -1,18 +1,52 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  MapPin,
+  Circle,
+  Users,
+  DollarSign,
+  Sparkles,
+  Search,
+  UtensilsCrossed,
+  Landmark,
+  Trees,
+  Music,
+  ShoppingBag,
+  Castle,
+  Popcorn,
+  Coffee,
+  Palette,
+  Dumbbell,
+} from 'lucide-react';
 import {
   GenerateItineraryRequest,
   ACTIVITY_TYPES,
   RADIUS_OPTIONS,
   NominatimResult,
   Coordinates,
+  ActivityType,
 } from '@/types';
 
 interface ItineraryFormProps {
   onSubmit: (data: GenerateItineraryRequest) => void;
   isLoading: boolean;
 }
+
+// Icon mapping for activity types
+const activityIcons: Record<ActivityType, React.ReactNode> = {
+  'Restaurants': <UtensilsCrossed className="w-4 h-4" />,
+  'Museums': <Landmark className="w-4 h-4" />,
+  'Parks & Outdoors': <Trees className="w-4 h-4" />,
+  'Nightlife & Bars': <Music className="w-4 h-4" />,
+  'Shopping': <ShoppingBag className="w-4 h-4" />,
+  'Historical Sites': <Castle className="w-4 h-4" />,
+  'Entertainment': <Popcorn className="w-4 h-4" />,
+  'Coffee Shops': <Coffee className="w-4 h-4" />,
+  'Art Galleries': <Palette className="w-4 h-4" />,
+  'Sports & Recreation': <Dumbbell className="w-4 h-4" />,
+};
 
 export default function ItineraryForm({ onSubmit, isLoading }: ItineraryFormProps) {
   const [city, setCity] = useState('');
@@ -98,124 +132,186 @@ export default function ItineraryForm({ onSubmit, isLoading }: ItineraryFormProp
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto space-y-6">
-      <div>
-        <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
-          City
-        </label>
-        <div className="relative" ref={suggestionsRef}>
-          <input
-            type="text"
-            id="city"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="Enter a city name..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            required
-          />
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-              {suggestions.map((result) => (
-                <button
-                  key={result.place_id}
-                  type="button"
-                  onClick={() => handleCitySelect(result)}
-                  className="w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
-                >
-                  {result.display_name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div>
-        <label htmlFor="radius" className="block text-sm font-medium text-gray-700 mb-2">
-          Search Radius
-        </label>
-        <select
-          id="radius"
-          value={radius}
-          onChange={(e) => setRadius(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-        >
-          {RADIUS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-2">
-            Total Budget (USD) <span className="text-gray-500 font-normal">(optional)</span>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="w-full max-w-3xl mx-auto"
+    >
+      <form onSubmit={handleSubmit} className="glass rounded-3xl p-8 md:p-10 shadow-2xl space-y-8">
+        {/* City Input */}
+        <div className="space-y-3">
+          <label htmlFor="city" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <MapPin className="w-4 h-4 text-primary-600" />
+            Where to?
           </label>
-          <input
-            type="number"
-            id="budget"
-            value={budget}
-            onChange={(e) => setBudget(e.target.value)}
-            placeholder="e.g., 500"
-            min="0"
-            step="1"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="travelers" className="block text-sm font-medium text-gray-700 mb-2">
-            Number of Travelers
-          </label>
-          <input
-            type="number"
-            id="travelers"
-            value={travelers}
-            onChange={(e) => setTravelers(e.target.value)}
-            placeholder="e.g., 2"
-            min="1"
-            max="20"
-            step="1"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Activity Preferences (select at least one)
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          {ACTIVITY_TYPES.map((activity) => (
-            <label
-              key={activity}
-              className={`flex items-center px-4 py-2 border rounded-lg cursor-pointer transition-all ${
-                preferences.includes(activity)
-                  ? 'bg-blue-500 text-white border-blue-500'
-                  : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
-              }`}
-            >
+          <div className="relative" ref={suggestionsRef}>
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
-                type="checkbox"
-                checked={preferences.includes(activity)}
-                onChange={() => handlePreferenceToggle(activity)}
-                className="mr-2"
+                type="text"
+                id="city"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="Search for a city..."
+                className="input-primary pl-12 text-lg"
+                required
               />
-              {activity}
-            </label>
-          ))}
+            </div>
+            <AnimatePresence>
+              {showSuggestions && suggestions.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute z-50 w-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden custom-scrollbar max-h-64 overflow-y-auto"
+                >
+                  {suggestions.map((result, index) => (
+                    <motion.button
+                      key={result.place_id}
+                      type="button"
+                      onClick={() => handleCitySelect(result)}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="w-full px-5 py-4 text-left hover:bg-primary-50 transition-all duration-200 border-b border-gray-50 last:border-b-0 flex items-center gap-3 group"
+                    >
+                      <MapPin className="w-4 h-4 text-gray-400 group-hover:text-primary-600 transition-colors" />
+                      <div>
+                        <p className="text-gray-900 font-medium group-hover:text-primary-600 transition-colors">
+                          {result.display_name.split(',')[0]}
+                        </p>
+                        <p className="text-sm text-gray-500">{result.display_name}</p>
+                      </div>
+                    </motion.button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
-      </div>
 
-      <button
-        type="submit"
-        disabled={isLoading || !city || preferences.length === 0}
-        className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-      >
-        {isLoading ? 'Generating Itinerary...' : 'Generate Itinerary'}
-      </button>
-    </form>
+        {/* Radius Selector */}
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <Circle className="w-4 h-4 text-primary-600" />
+            Search Radius
+          </label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {RADIUS_OPTIONS.map((option) => (
+              <motion.button
+                key={option.value}
+                type="button"
+                onClick={() => setRadius(option.value)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={`px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  radius === option.value
+                    ? 'bg-gradient-to-r from-primary-600 to-primary-500 text-white shadow-lg shadow-primary-500/30'
+                    : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-primary-300 hover:bg-primary-50'
+                }`}
+              >
+                {option.label.replace('Within ', '')}
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
+        {/* Budget and Travelers */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <label htmlFor="budget" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <DollarSign className="w-4 h-4 text-primary-600" />
+              Budget <span className="text-gray-400 font-normal text-xs">(optional)</span>
+            </label>
+            <div className="relative">
+              <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="number"
+                id="budget"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+                placeholder="500"
+                min="0"
+                step="1"
+                className="input-primary pl-12"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label htmlFor="travelers" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <Users className="w-4 h-4 text-primary-600" />
+              Travelers
+            </label>
+            <div className="relative">
+              <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="number"
+                id="travelers"
+                value={travelers}
+                onChange={(e) => setTravelers(e.target.value)}
+                placeholder="2"
+                min="1"
+                max="20"
+                step="1"
+                className="input-primary pl-12"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Activity Preferences */}
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <Sparkles className="w-4 h-4 text-primary-600" />
+            What interests you?
+            <span className="text-gray-400 font-normal text-xs">(select at least one)</span>
+          </label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {ACTIVITY_TYPES.map((activity, index) => {
+              const isSelected = preferences.includes(activity);
+              return (
+                <motion.button
+                  key={activity}
+                  type="button"
+                  onClick={() => handlePreferenceToggle(activity)}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.03 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                    isSelected
+                      ? 'bg-gradient-to-r from-coral-500 to-coral-400 text-white shadow-lg shadow-coral-500/30'
+                      : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-coral-300 hover:bg-coral-50'
+                  }`}
+                >
+                  <span className={isSelected ? 'text-white' : 'text-gray-500'}>
+                    {activityIcons[activity]}
+                  </span>
+                  <span className="text-sm">{activity}</span>
+                </motion.button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <motion.button
+          type="submit"
+          disabled={isLoading || !city || preferences.length === 0}
+          whileHover={{ scale: isLoading ? 1 : 1.02 }}
+          whileTap={{ scale: isLoading ? 1 : 0.98 }}
+          className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none text-lg py-4"
+        >
+          <span className="flex items-center justify-center gap-3">
+            <Sparkles className="w-5 h-5" />
+            {isLoading ? 'Creating Your Adventure...' : 'Generate My Itinerary'}
+          </span>
+        </motion.button>
+      </form>
+    </motion.div>
   );
 }
