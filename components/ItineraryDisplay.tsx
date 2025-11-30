@@ -17,10 +17,19 @@ import {
 import { Itinerary, ItineraryItem, EnrichedItineraryItem, GooglePlaceData, EnrichPlaceRequest } from '@/types';
 import RatingDisplay from './RatingDisplay';
 import ReviewCard from './ReviewCard';
+import ReplaceActivity from './ReplaceActivity';
 
 interface ItineraryDisplayProps {
   itinerary: Itinerary;
   onRegenerate: () => void;
+  onReplaceActivity?: (newItinerary: ItineraryItem[], changesSummary: string) => void;
+  preferences?: {
+    city: string;
+    radius: number;
+    activities: string[];
+    budget?: number;
+    travelers?: number;
+  };
 }
 
 // Updated color scheme for Wanderlust Theme
@@ -57,9 +66,18 @@ interface ActivityCardProps {
   item: ItineraryItem;
   index: number;
   city: string;
+  allActivities: ItineraryItem[];
+  onReplaceActivity?: (newItinerary: ItineraryItem[], changesSummary: string) => void;
+  preferences?: {
+    city: string;
+    radius: number;
+    activities: string[];
+    budget?: number;
+    travelers?: number;
+  };
 }
 
-function ActivityCard({ item, index, city }: ActivityCardProps) {
+function ActivityCard({ item, index, city, allActivities, onReplaceActivity, preferences }: ActivityCardProps) {
   const [enrichedData, setEnrichedData] = useState<GooglePlaceData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -284,11 +302,25 @@ function ActivityCard({ item, index, city }: ActivityCardProps) {
           Loading reviews and details...
         </div>
       )}
+
+      {/* Replace Activity Button */}
+      {onReplaceActivity && preferences && (
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <ReplaceActivity
+            activity={item}
+            index={index}
+            allActivities={allActivities}
+            city={city}
+            preferences={preferences}
+            onReplace={onReplaceActivity}
+          />
+        </div>
+      )}
     </motion.div>
   );
 }
 
-export default function ItineraryDisplay({ itinerary, onRegenerate }: ItineraryDisplayProps) {
+export default function ItineraryDisplay({ itinerary, onRegenerate, onReplaceActivity, preferences }: ItineraryDisplayProps) {
   const totalCostPerPerson = itinerary.itinerary.reduce(
     (sum, item) => sum + (item.estimatedCost || 0),
     0
@@ -394,7 +426,14 @@ export default function ItineraryDisplay({ itinerary, onRegenerate }: ItineraryD
             )}
 
             {/* Activity Card with Google Places enrichment */}
-            <ActivityCard item={item} index={index} city={itinerary.city} />
+            <ActivityCard
+              item={item}
+              index={index}
+              city={itinerary.city}
+              allActivities={itinerary.itinerary}
+              onReplaceActivity={onReplaceActivity}
+              preferences={preferences}
+            />
           </div>
         ))}
       </div>

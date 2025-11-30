@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Compass, Sparkles, Loader2 } from 'lucide-react';
+import { Compass, Sparkles, Loader2, Undo2, Redo2, CheckCircle2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import ItineraryForm from '@/components/ItineraryForm';
 import ItineraryDisplay from '@/components/ItineraryDisplay';
@@ -33,6 +33,11 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [requestData, setRequestData] = useState<GenerateItineraryRequest | null>(null);
   const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
+
+  // Undo/Redo functionality
+  const [itineraryHistory, setItineraryHistory] = useState<Itinerary[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [changeMessage, setChangeMessage] = useState<string | null>(null);
 
   const handleGenerateItinerary = async (data: GenerateItineraryRequest) => {
     setIsLoading(true);
@@ -72,6 +77,10 @@ export default function Home() {
       }
 
       setItinerary(result);
+
+      // Initialize history with the first itinerary
+      setItineraryHistory([result]);
+      setHistoryIndex(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       console.error('Error generating itinerary:', err);
@@ -81,10 +90,70 @@ export default function Home() {
     }
   };
 
+  const handleReplaceActivity = (newItineraryItems: any[], changesSummary: string) => {
+    if (!itinerary) return;
+
+    // Calculate budget info for the new itinerary
+    const totalCostPerPerson = newItineraryItems.reduce(
+      (sum, item) => sum + (item.estimatedCost || 0),
+      0
+    );
+
+    const newItinerary: Itinerary = {
+      city: itinerary.city,
+      itinerary: newItineraryItems,
+    };
+
+    if (itinerary.totalCost !== undefined && requestData?.travelers) {
+      newItinerary.totalCost = totalCostPerPerson * requestData.travelers;
+    }
+
+    if (itinerary.budgetRemaining !== undefined && requestData?.budget && requestData?.travelers) {
+      newItinerary.budgetRemaining = requestData.budget - (totalCostPerPerson * requestData.travelers);
+    }
+
+    // Update itinerary and add to history
+    setItinerary(newItinerary);
+
+    // Clear any future history if we're not at the end
+    const newHistory = itineraryHistory.slice(0, historyIndex + 1);
+    newHistory.push(newItinerary);
+    setItineraryHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+
+    // Show change message
+    setChangeMessage(changesSummary);
+    setTimeout(() => setChangeMessage(null), 5000); // Clear after 5 seconds
+  };
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      setHistoryIndex(historyIndex - 1);
+      setItinerary(itineraryHistory[historyIndex - 1]);
+      setChangeMessage('Undone');
+      setTimeout(() => setChangeMessage(null), 3000);
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < itineraryHistory.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      setItinerary(itineraryHistory[historyIndex + 1]);
+      setChangeMessage('Redone');
+      setTimeout(() => setChangeMessage(null), 3000);
+    }
+  };
+
   const handleRegenerate = () => {
     setItinerary(null);
     setError(null);
+    setItineraryHistory([]);
+    setHistoryIndex(-1);
+    setChangeMessage(null);
   };
+
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < itineraryHistory.length - 1;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-coral-50 relative overflow-hidden">
@@ -186,17 +255,75 @@ export default function Home() {
           </>
         ) : (
           <>
+            {/* Change Notification */}
+            <AnimatePresence>
+              {changeMessage && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="fixed top-8 left-1/2 -translate-x-1/2 z-40 max-w-md"
+                >
+                  <div className="glass rounded-2xl px-6 py-4 shadow-2xl border border-white/30 flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                    <p className="text-gray-900 font-medium">{changeMessage}</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Undo/Redo Buttons */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="fixed bottom-8 right-8 z-30 flex items-center gap-3"
+            >
+              <button
+                onClick={handleUndo}
+                disabled={!canUndo}
+                className="btn-secondary flex items-center gap-2 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Undo last change"
+              >
+                <Undo2 className="w-4 h-4" />
+                <span className="hidden md:inline">Undo</span>
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={!canRedo}
+                className="btn-secondary flex items-center gap-2 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Redo last change"
+              >
+                <span className="hidden md:inline">Redo</span>
+                <Redo2 className="w-4 h-4" />
+              </button>
+            </motion.div>
+
             {/* Results View - Split Screen Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
               {/* Left: Itinerary */}
               <div className="lg:max-h-[85vh] lg:overflow-y-auto lg:pr-4 custom-scrollbar">
-                <ItineraryDisplay itinerary={itinerary} onRegenerate={handleRegenerate} />
+                <ItineraryDisplay
+                  itinerary={itinerary}
+                  onRegenerate={handleRegenerate}
+                  onReplaceActivity={handleReplaceActivity}
+                  preferences={
+                    requestData
+                      ? {
+                          city: requestData.city,
+                          radius: parseInt(requestData.radius),
+                          activities: requestData.preferences,
+                          budget: requestData.budget,
+                          travelers: requestData.travelers,
+                        }
+                      : undefined
+                  }
+                />
               </div>
 
               {/* Right: Map (Sticky on desktop) */}
               <div className="lg:sticky lg:top-8 lg:h-[85vh]">
                 <MapView
-                  key={`${itinerary.city}-${itinerary.itinerary.length}`}
+                  key={`${itinerary.city}-${itinerary.itinerary.length}-${historyIndex}`}
                   itinerary={itinerary}
                 />
               </div>

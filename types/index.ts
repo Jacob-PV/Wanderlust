@@ -453,3 +453,115 @@ export interface EnrichedItineraryItem extends ItineraryItem {
   /** Error message if Google data fetch failed */
   googleError?: string;
 }
+
+/**
+ * Alternative activity suggestion from Google Places
+ *
+ * Returned when searching for replacement activities.
+ */
+export interface AlternativeActivity {
+  /** Name of the alternative activity */
+  name: string;
+
+  /** Google average star rating (1-5) */
+  rating?: number;
+
+  /** Total number of user ratings */
+  userRatingsTotal?: number;
+
+  /** Short address/vicinity */
+  vicinity: string;
+
+  /** Activity type */
+  type: string;
+
+  /** Geographic coordinates */
+  coordinates: Coordinates;
+
+  /** Whether the place is currently open */
+  openNow?: boolean;
+
+  /** Distance from original location in miles */
+  distance: number;
+
+  /** Google Place ID */
+  placeId?: string;
+}
+
+/**
+ * Request body for GET /api/find-alternatives
+ *
+ * Used to find alternative activities of the same type nearby.
+ */
+export interface FindAlternativesRequest {
+  /** Activity type to search for */
+  type: string;
+
+  /** Latitude of current location */
+  lat: number;
+
+  /** Longitude of current location */
+  lng: number;
+
+  /** Search radius in meters (default: 8000) */
+  radius?: number;
+}
+
+/**
+ * Request body for POST /api/replace-activity
+ *
+ * Used to replace an activity and regenerate the optimized itinerary.
+ */
+export interface ReplaceActivityRequest {
+  /** Current complete itinerary */
+  currentItinerary: ItineraryItem[];
+
+  /** Index of activity to replace (0-based) */
+  replaceIndex: number;
+
+  /** Replacement activity details */
+  replacement: {
+    name: string;
+    type: string;
+    coordinates: Coordinates;
+    address?: string;
+    placeId?: string;
+  };
+
+  /** Original preferences used to generate itinerary */
+  preferences: {
+    city: string;
+    radius: number;
+    activities: string[];
+    budget?: number;
+    travelers?: number;
+  };
+}
+
+/**
+ * Response from POST /api/replace-activity
+ *
+ * Contains the new optimized itinerary and summary of changes.
+ */
+export interface ReplaceActivityResponse {
+  /** Newly optimized itinerary */
+  newItinerary: ItineraryItem[];
+
+  /** Summary of what changed */
+  changes: {
+    /** Activity that was replaced */
+    replaced: string;
+
+    /** Replacement activity name */
+    with: string;
+
+    /** Whether timing was adjusted */
+    timingAdjusted: boolean;
+
+    /** Whether activities were reordered */
+    reordered: boolean;
+
+    /** Human-readable summary of changes */
+    summary: string;
+  };
+}
