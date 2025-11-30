@@ -1,6 +1,6 @@
 # Wanderlust - Travel Itinerary Generator
 
-A visually stunning, premium web application that generates personalized travel itineraries using AI. Built with Next.js, TypeScript, Tailwind CSS, Framer Motion, and powered by OpenAI's GPT models.
+A visually stunning, premium web application that generates personalized multi-day travel itineraries using AI. Built with Next.js, TypeScript, Tailwind CSS, Framer Motion, and powered by OpenAI's GPT models.
 
 ![Travel Itinerary Generator](https://img.shields.io/badge/Next.js-15-black?style=flat&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?style=flat&logo=typescript)
@@ -10,13 +10,17 @@ A visually stunning, premium web application that generates personalized travel 
 ## ✨ Features
 
 ### Core Functionality
-- **AI-Powered Itinerary Generation**: Generate customized day itineraries using OpenAI's GPT-4o-mini
+- **AI-Powered Itinerary Generation**: Generate customized single-day or multi-day itineraries using OpenAI's GPT-4o-mini
+- **📅 Multi-Day Trip Planning**: Plan trips from 1 to 14 days with intelligent day-by-day scheduling
+- **📆 Calendar Date Picker**: Visual calendar with range selection and quick-select buttons (Weekend, 3 days, 1 week, etc.)
+- **🎯 Trip Pace Control**: Choose your pace - Relaxed (3-4 activities), Moderate (5-6), or Packed (7-8 per day)
+- **🔄 Smart Activity Replacement**: Don't like a suggestion? Replace any activity with automatic schedule optimization
 - **Smart Travel Time Calculation**: Accounts for realistic travel time between locations with route optimization
 - **Budget Tracking & Cost Estimates**: Set your budget, specify travelers, and get per-activity cost estimates with budget tracking
 - **City Autocomplete**: Search for cities with autocomplete powered by OpenStreetMap Nominatim
-- **Interactive Map**: View all itinerary locations on an interactive Leaflet map with enhanced custom markers
+- **Interactive Multi-Day Maps**: View all itinerary locations with color-coded daily routes on interactive Leaflet maps
 - **Customizable Preferences**: Select from 10+ activity types including restaurants, museums, parks, and more
-- **Radius Selection**: Choose search radius from 2 to 20 miles
+- **Radius Selection**: Choose search radius from 1 to 100 miles
 
 ### Google Places Integration (NEW!)
 - ⭐ **Real Star Ratings**: See actual ratings from Google Places (1-5 stars with review counts)
@@ -49,6 +53,7 @@ A visually stunning, premium web application that generates personalized travel 
 - **Animations**: Framer Motion
 - **Icons**: Lucide React
 - **Map**: Leaflet & React Leaflet with custom markers
+- **Date Handling**: react-day-picker & date-fns
 - **Geocoding**: OpenStreetMap Nominatim API
 - **AI**: OpenAI API (GPT-4o-mini)
 - **Reviews & Enrichment**: Google Places API
@@ -107,12 +112,40 @@ A visually stunning, premium web application that generates personalized travel 
 
 ## Usage
 
+### Creating a Single-Day Itinerary
+
 1. **Enter a City**: Start typing a city name and select from the autocomplete suggestions
-2. **Select Radius**: Choose how far from the city center you want to explore (2-20 miles)
+2. **Select Radius**: Choose how far from the city center you want to explore (1-100 miles)
 3. **Choose Activity Preferences**: Select one or more activity types you're interested in
-4. **Generate Itinerary**: Click the "Generate Itinerary" button
-5. **View Results**: See your personalized itinerary with timeline and interactive map
-6. **Regenerate**: Click "Regenerate" to create a new itinerary with the same parameters
+4. **Set Budget** (optional): Enter your budget per person and number of travelers
+5. **Generate Itinerary**: Click the "Generate My Itinerary" button
+6. **View Results**: See your personalized itinerary with timeline and interactive map
+7. **Replace Activities**: Click "Replace this ↻" on any activity to swap it out
+8. **Regenerate**: Click "New Trip" to create a different itinerary
+
+### Planning a Multi-Day Trip
+
+1. **Enter Your Destination**: Type and select your destination city
+2. **Select Travel Dates**: Click the date picker and choose your travel dates
+   - Use quick select buttons: Single day, Weekend (2 days), 3 days, 1 week, 2 weeks
+   - Or manually select a custom date range on the calendar
+3. **Choose Trip Pace**: Select your preferred pace
+   - **Relaxed**: 3-4 activities per full day, plenty of downtime
+   - **Moderate**: 5-6 activities per full day, balanced schedule
+   - **Packed**: 7-8 activities per full day, action-packed adventure
+4. **Set Daily Hours**: Adjust the slider for hours of activities per day (6-12 hours)
+5. **Select Activity Preferences**: Choose activity types you're interested in
+6. **Set Budget** (optional): Enter total budget and number of travelers
+7. **Generate**: Click "Generate My Itinerary"
+8. **Navigate Days**: Use day tabs to browse your itinerary day-by-day
+9. **View on Map**: See all activities color-coded by day with routes connecting them
+10. **Replace Activities**: Click "Replace this ↻" on any activity card to find alternatives
+
+### Understanding Day Types
+
+- **Arrival Day (Day 1)**: Activities start at 2:00 PM to account for travel/check-in
+- **Full Days (Middle Days)**: Activities run from 9:00 AM to 9:00 PM
+- **Departure Day (Last Day)**: Activities end by 2:00 PM for checkout/travel
 
 ## Project Structure
 
@@ -121,16 +154,24 @@ travel_itenerary/
 ├── app/
 │   ├── api/
 │   │   ├── generate-itinerary/
-│   │   │   └── route.ts          # API route for itinerary generation
-│   │   └── enrich-place/
-│   │       └── route.ts          # API route for Google Places enrichment
+│   │   │   └── route.ts          # API route for single/multi-day itinerary generation
+│   │   ├── enrich-place/
+│   │   │   └── route.ts          # API route for Google Places enrichment
+│   │   ├── replace-activity/
+│   │   │   └── route.ts          # API route for activity replacement
+│   │   └── find-alternatives/
+│   │       └── route.ts          # API route for finding alternative activities
 │   ├── layout.tsx                # Root layout
 │   ├── page.tsx                  # Main page component
-│   └── globals.css               # Global styles
+│   └── globals.css               # Global styles including calendar styles
 ├── components/
-│   ├── ItineraryForm.tsx         # Form component with city autocomplete
-│   ├── ItineraryDisplay.tsx      # Itinerary display with Google Places data
-│   ├── MapView.tsx               # Interactive map component
+│   ├── ItineraryForm.tsx         # Form with city autocomplete and date picker
+│   ├── DateRangePicker.tsx       # Calendar component for date selection
+│   ├── ItineraryDisplay.tsx      # Single-day itinerary display
+│   ├── DayNavigation.tsx         # Multi-day itinerary with day tabs
+│   ├── MapView.tsx               # Single-day interactive map
+│   ├── MultiDayMapView.tsx       # Multi-day map with color-coded routes
+│   ├── ReplaceActivity.tsx       # Activity replacement UI
 │   ├── RatingDisplay.tsx         # Star rating display component
 │   └── ReviewCard.tsx            # Individual review card component
 ├── types/
@@ -138,6 +179,8 @@ travel_itenerary/
 ├── .env.example                  # Environment variables template
 ├── GOOGLE_SETUP.md               # Google Places API setup guide
 ├── CLAUDE.md                     # AI assistant context and conventions
+├── ARCHITECTURE.md               # System architecture documentation
+├── API.md                        # API endpoint documentation
 ├── next.config.ts                # Next.js configuration
 ├── tailwind.config.ts            # Tailwind CSS configuration
 └── package.json                  # Project dependencies
@@ -251,15 +294,40 @@ Displays the generated itinerary in a timeline format with color-coded activity 
 #### MapView
 Renders an interactive Leaflet map with numbered markers for each location.
 
+## API Costs
+
+Understanding the costs of running this app:
+
+**OpenAI API:**
+- Single-day itinerary: ~$0.01-0.02
+- 3-day trip: ~$0.04-0.06
+- 7-day trip: ~$0.08-0.12
+- Activity replacement: ~$0.01-0.03 each
+
+**Google Places API:**
+- $200/month free credit (~4,000 place lookups)
+- Place Details: $0.017 per request
+- Text Search: $0.032 per request
+- 24-hour in-memory caching reduces costs significantly
+
+**Nominatim (OpenStreetMap):**
+- Completely free!
+- Rate limit: 1 request/second (handled automatically)
+
+**Monthly estimate for moderate use:**
+- ~100 itineraries generated: $5-10 (OpenAI)
+- Google Places within free tier for most users
+
 ## Future Enhancements
 
 - [ ] Save/export itinerary feature
 - [ ] Share itinerary via link
-- [ ] Multiple day itineraries
+- [x] ~~Multiple day itineraries~~ ✅ **Implemented!**
+- [x] ~~Activity replacement~~ ✅ **Implemented!**
 - [ ] Weather integration
 - [ ] User accounts to save itineraries
 - [ ] PDF export
-- [ ] Custom activity durations
+- [ ] Undo/Redo for multi-day itineraries
 - [ ] Route optimization with real-time traffic
 - [ ] Booking integration (OpenTable, Resy, etc.)
 - [ ] Redis/database caching for Google Places data
@@ -273,6 +341,8 @@ Renders an interactive Leaflet map with numbered markers for each location.
 - [Lucide React](https://lucide.dev/) - Beautiful icon library
 - [Leaflet](https://leafletjs.com/) - Interactive maps
 - [React Leaflet](https://react-leaflet.js.org/) - React wrapper for Leaflet
+- [react-day-picker](https://react-day-picker.js.org/) - Calendar date picker
+- [date-fns](https://date-fns.org/) - Date manipulation utilities
 - [OpenAI](https://openai.com/) - AI itinerary generation
 - [Google Places API](https://developers.google.com/maps/documentation/places) - Real reviews, ratings, and place data
 - [OpenStreetMap](https://www.openstreetmap.org/) - Free geocoding and maps
