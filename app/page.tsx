@@ -244,9 +244,9 @@ export default function Home() {
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-coral-200 rounded-full blur-3xl opacity-20 animate-float" style={{ animationDelay: '1s' }}></div>
       </div>
 
-      <div className="relative z-10 container mx-auto px-4 py-8 md:py-12">
+      <div className="relative z-10">
         {!itinerary && !multiDayItinerary ? (
-          <>
+          <div className="container mx-auto px-4 py-8 md:py-12">
             {/* Hero Header */}
             <motion.header
               initial={{ opacity: 0, y: -20 }}
@@ -333,7 +333,7 @@ export default function Home() {
 
             {/* Form */}
             <ItineraryForm onSubmit={handleGenerateItinerary} isLoading={isLoading} />
-          </>
+          </div>
         ) : (
           <>
             {/* Change Notification */}
@@ -379,69 +379,48 @@ export default function Home() {
               </button>
             </motion.div>
 
-            {/* Results View - Different layouts for single-day vs multi-day */}
-            {multiDayItinerary ? (
-              // Multi-Day Itinerary Layout
-              <div className="space-y-8">
-                {/* Header with regenerate button */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-3xl md:text-4xl font-bold gradient-text mb-2">
-                      Your {multiDayItinerary.days.length}-Day Adventure
-                    </h2>
-                    <p className="text-gray-600">
-                      {multiDayItinerary.city} • {multiDayItinerary.totalActivities} total activities
-                    </p>
-                    {multiDayItinerary.totalCost !== undefined && (
-                      <div className="mt-2 text-sm">
-                        <span className="font-semibold text-gray-700">Total Cost:</span>{' '}
-                        <span className="text-primary-600 font-bold">${multiDayItinerary.totalCost.toFixed(2)}</span>
-                        {multiDayItinerary.budgetRemaining !== undefined && (
-                          <span className={`ml-2 ${multiDayItinerary.budgetRemaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            ({multiDayItinerary.budgetRemaining >= 0 ? '$' + multiDayItinerary.budgetRemaining.toFixed(2) + ' remaining' : '$' + Math.abs(multiDayItinerary.budgetRemaining).toFixed(2) + ' over budget'})
-                          </span>
-                        )}
-                      </div>
-                    )}
+            {/* Results View with max-w-7xl container - Different layouts for single-day vs multi-day */}
+            <div className="max-w-7xl mx-auto px-4 py-8">
+              {multiDayItinerary ? (
+                // Multi-Day Itinerary Layout
+                <div className="space-y-8">
+                  {/* Header with regenerate button */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-3xl md:text-4xl font-bold gradient-text mb-2">
+                        Your {multiDayItinerary.days.length}-Day Adventure
+                      </h2>
+                      <p className="text-gray-600">
+                        {multiDayItinerary.city} • {multiDayItinerary.totalActivities} total activities
+                      </p>
+                      {multiDayItinerary.totalCost !== undefined && (
+                        <div className="mt-2 text-sm">
+                          <span className="font-semibold text-gray-700">Total Cost:</span>{' '}
+                          <span className="text-primary-600 font-bold">${multiDayItinerary.totalCost.toFixed(2)}</span>
+                          {multiDayItinerary.budgetRemaining !== undefined && (
+                            <span className={`ml-2 ${multiDayItinerary.budgetRemaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              ({multiDayItinerary.budgetRemaining >= 0 ? '$' + multiDayItinerary.budgetRemaining.toFixed(2) + ' remaining' : '$' + Math.abs(multiDayItinerary.budgetRemaining).toFixed(2) + ' over budget'})
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleRegenerate}
+                      className="px-4 py-2 bg-white border-2 border-gray-200 rounded-xl hover:border-coral-300 hover:bg-coral-50 transition-all duration-200 font-medium text-gray-700"
+                    >
+                      New Trip
+                    </button>
                   </div>
-                  <button
-                    onClick={handleRegenerate}
-                    className="px-4 py-2 bg-white border-2 border-gray-200 rounded-xl hover:border-coral-300 hover:bg-coral-50 transition-all duration-200 font-medium text-gray-700"
-                  >
-                    New Trip
-                  </button>
-                </div>
 
-                {/* Map View */}
-                <MultiDayMapView days={multiDayItinerary.days} />
+                  {/* Map View */}
+                  <MultiDayMapView days={multiDayItinerary.days} />
 
-                {/* Day Navigation */}
-                <DayNavigation
-                  days={multiDayItinerary.days}
-                  city={multiDayItinerary.city}
-                  onReplaceActivity={handleReplaceMultiDay}
-                  preferences={
-                    requestData
-                      ? {
-                          city: requestData.city,
-                          radius: parseInt(requestData.radius),
-                          activities: requestData.preferences,
-                          budget: requestData.budget,
-                          travelers: requestData.travelers,
-                        }
-                      : undefined
-                  }
-                />
-              </div>
-            ) : itinerary ? (
-              // Single-Day Itinerary Layout (existing)
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
-                {/* Left: Itinerary */}
-                <div className="lg:max-h-[85vh] lg:overflow-y-auto lg:pr-4 custom-scrollbar">
-                  <ItineraryDisplay
-                    itinerary={itinerary}
-                    onRegenerate={handleRegenerate}
-                    onReplaceActivity={handleReplaceActivity}
+                  {/* Day Navigation */}
+                  <DayNavigation
+                    days={multiDayItinerary.days}
+                    city={multiDayItinerary.city}
+                    onReplaceActivity={handleReplaceMultiDay}
                     preferences={
                       requestData
                         ? {
@@ -455,16 +434,39 @@ export default function Home() {
                     }
                   />
                 </div>
+              ) : itinerary ? (
+                // Single-Day Itinerary Layout - Optimized 60/40 split
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-10">
+                  {/* Left: Itinerary - 60% width on desktop */}
+                  <div className="lg:col-span-3 lg:max-h-[85vh] lg:overflow-y-auto lg:pr-4 custom-scrollbar">
+                    <ItineraryDisplay
+                      itinerary={itinerary}
+                      onRegenerate={handleRegenerate}
+                      onReplaceActivity={handleReplaceActivity}
+                      preferences={
+                        requestData
+                          ? {
+                              city: requestData.city,
+                              radius: parseInt(requestData.radius),
+                              activities: requestData.preferences,
+                              budget: requestData.budget,
+                              travelers: requestData.travelers,
+                            }
+                          : undefined
+                      }
+                    />
+                  </div>
 
-                {/* Right: Map (Sticky on desktop) */}
-                <div className="lg:sticky lg:top-8 lg:h-[85vh]">
-                  <MapView
-                    key={`${itinerary.city}-${itinerary.itinerary.length}-${historyIndex}`}
-                    itinerary={itinerary}
-                  />
+                  {/* Right: Map - 40% width on desktop, sticky */}
+                  <div className="lg:col-span-2 lg:sticky lg:top-8 lg:h-[85vh]">
+                    <MapView
+                      key={`${itinerary.city}-${itinerary.itinerary.length}-${historyIndex}`}
+                      itinerary={itinerary}
+                    />
+                  </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </>
         )}
 

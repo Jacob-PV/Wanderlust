@@ -229,7 +229,7 @@ function ActivityCard({ item, index, city, allActivities, onReplaceActivity, pre
           <img
             src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${enrichedData.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}`}
             alt={item.name}
-            className="w-full h-48 md:h-64 object-cover rounded-xl shadow-md"
+            className="w-full h-56 md:h-64 lg:h-80 object-cover rounded-xl shadow-md"
             loading="lazy"
           />
         </div>
