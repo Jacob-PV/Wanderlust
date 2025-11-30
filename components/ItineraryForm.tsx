@@ -19,6 +19,8 @@ import {
   Coffee,
   Palette,
   Dumbbell,
+  Calendar,
+  Clock,
 } from 'lucide-react';
 import {
   GenerateItineraryRequest,
@@ -26,7 +28,9 @@ import {
   NominatimResult,
   Coordinates,
   ActivityType,
+  TripPace,
 } from '@/types';
+import DateRangePicker from './DateRangePicker';
 
 interface ItineraryFormProps {
   onSubmit: (data: GenerateItineraryRequest) => void;
@@ -54,6 +58,9 @@ export default function ItineraryForm({ onSubmit, isLoading }: ItineraryFormProp
   const [preferences, setPreferences] = useState<string[]>([]);
   const [budget, setBudget] = useState<string>('');
   const [travelers, setTravelers] = useState<string>('1');
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date } | null>(null);
+  const [pace, setPace] = useState<TripPace>('moderate');
+  const [dailyHours, setDailyHours] = useState(10);
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestionsRef = useRef<HTMLDivElement>(null);
@@ -148,6 +155,9 @@ export default function ItineraryForm({ onSubmit, isLoading }: ItineraryFormProp
         coordinates: cityCoordinates,
         budget: budget ? parseFloat(budget) : undefined,
         travelers: travelers ? parseInt(travelers) : undefined,
+        dateRange: dateRange ? { startDate: dateRange.from, endDate: dateRange.to } : undefined,
+        pace,
+        dailyHours,
       });
     }
   };
@@ -209,6 +219,84 @@ export default function ItineraryForm({ onSubmit, isLoading }: ItineraryFormProp
             </AnimatePresence>
           </div>
         </div>
+
+        {/* Date Range Picker */}
+        <div className="space-y-3">
+          <label htmlFor="dateRange" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <Calendar className="w-4 h-4 text-primary-600" />
+            When are you traveling?
+            <span className="text-gray-400 font-normal text-xs">(optional - defaults to single day)</span>
+          </label>
+          <DateRangePicker
+            onDateRangeChange={setDateRange}
+            value={dateRange}
+          />
+        </div>
+
+        {/* Trip Preferences (only shown if multi-day) */}
+        {dateRange && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="space-y-6 border-t border-gray-200 pt-6"
+          >
+            {/* Trip Pace */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <Sparkles className="w-4 h-4 text-primary-600" />
+                Trip Pace
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {(['relaxed', 'moderate', 'packed'] as TripPace[]).map((paceOption) => {
+                  const isSelected = pace === paceOption;
+                  return (
+                    <button
+                      key={paceOption}
+                      type="button"
+                      onClick={() => setPace(paceOption)}
+                      className={`px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                        isSelected
+                          ? 'bg-gradient-to-r from-coral-500 to-coral-400 text-white shadow-lg shadow-coral-500/30'
+                          : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-coral-300 hover:bg-coral-50'
+                      }`}
+                    >
+                      <div className="text-sm capitalize">{paceOption}</div>
+                      <div className="text-xs mt-1 opacity-80">
+                        {paceOption === 'relaxed' && '3-4 activities'}
+                        {paceOption === 'moderate' && '5-6 activities'}
+                        {paceOption === 'packed' && '7-8 activities'}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Daily Hours */}
+            <div className="space-y-3">
+              <label htmlFor="dailyHours" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <Clock className="w-4 h-4 text-primary-600" />
+                Daily Activity Hours
+              </label>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-semibold text-primary-600">{dailyHours} hours per day</span>
+                  <span className="text-sm text-gray-500">6 - 12 hours</span>
+                </div>
+                <input
+                  type="range"
+                  id="dailyHours"
+                  min="6"
+                  max="12"
+                  value={dailyHours}
+                  onChange={(e) => setDailyHours(parseInt(e.target.value))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Radius Slider */}
         <div className="space-y-3">

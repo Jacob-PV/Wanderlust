@@ -52,7 +52,238 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { GenerateItineraryRequest, Itinerary } from '@/types';
+import { format, differenceInDays, addDays } from 'date-fns';
+import { GenerateItineraryRequest, Itinerary, MultiDayItinerary, DayType } from '@/types';
+
+/**
+ * Calculate the number of days in a date range
+ */
+function getDayCount(startDate: Date, endDate: Date): number {
+  return differenceInDays(new Date(endDate), new Date(startDate)) + 1;
+}
+
+/**
+ * Determine the day type based on position in trip
+ */
+function getDayType(dayIndex: number, totalDays: number): DayType {
+  if (dayIndex === 0) return 'arrival';
+  if (dayIndex === totalDays - 1) return 'departure';
+  return 'full';
+}
+
+/**
+ * Get activity count based on day type and pace
+ */
+function getActivityCount(dayType: DayType, pace: string): string {
+  if (dayType === 'arrival' || dayType === 'departure') {
+    return '2-3';
+  }
+
+  switch (pace) {
+    case 'relaxed':
+      return '3-4';
+    case 'moderate':
+      return '5-6';
+    case 'packed':
+      return '7-8';
+    default:
+      return '5-6';
+  }
+}
+
+/**
+ * Get time range based on day type
+ */
+function getTimeRange(dayType: DayType): { start: string; end: string } {
+  switch (dayType) {
+    case 'arrival':
+      return { start: '2:00 PM', end: '9:00 PM' };
+    case 'departure':
+      return { start: '9:00 AM', end: '2:00 PM' };
+    case 'full':
+    default:
+      return { start: '9:00 AM', end: '9:00 PM' };
+  }
+}
+
+/**
+ * Generate multi-day itinerary
+ */
+async function generateMultiDayItinerary(
+  openai: any,
+  city: string,
+  radius: string,
+  preferences: string[],
+  coordinates: any,
+  dateRange: any,
+  numDays: number,
+  pace: string,
+  dailyHours: number,
+  budgetPerPerson: number,
+  budgetInfo: string
+) {
+  const startDate = new Date(dateRange.startDate);
+  const endDate = new Date(dateRange.endDate);
+
+  const prompt = `You are an expert travel planner creating a ${numDays}-day itinerary for ${city}.
+
+TRIP DETAILS:
+- Destination: ${city}
+- Dates: ${format(startDate, 'MMMM d, yyyy')} to ${format(endDate, 'MMMM d, yyyy')} (${numDays} days)
+- Search radius: Within ${radius} miles from city center
+- Interests: ${preferences.join(', ')}
+- Pace: ${pace}
+- Daily activity hours: ${dailyHours}${budgetInfo}
+
+DAY PLANNING STRATEGY:
+
+Day 1 (${format(startDate, 'EEEE, MMMM d')}):
+- Arrival day - assume check-in around 2:00 PM
+- Start activities at 2:00 PM
+- ${getActivityCount('arrival', pace)} lighter activities
+- End by 9:00 PM
+- Focus on nearby activities to ease into the trip
+
+${numDays > 2 ? `Days 2-${numDays - 1} (Full Days):
+- Full day of activities
+- Start at 9:00 AM
+- ${getActivityCount('full', pace)} activities per day
+- Include breakfast/brunch, lunch, and dinner
+- Mix activity types for variety
+- Consider energy levels (don't schedule all museums in one day)
+- Balance educational with recreational activities
+` : ''}
+
+${numDays > 1 ? `Day ${numDays} (${format(endDate, 'EEEE, MMMM d')}):
+- Departure day - assume checkout by 11:00 AM
+- Start at 9:00 AM
+- End activities by 2:00 PM for travel
+- ${getActivityCount('departure', pace)} activities maximum
+- Focus on nearby activities
+- Include a nice final meal or experience
+` : ''}
+
+CRITICAL REQUIREMENTS:
+
+1. **GEOGRAPHIC OPTIMIZATION**:
+   - Group activities that are near each other
+   - Minimize backtracking across the city
+   - Account for 15-30 min travel time between locations
+   - Consider natural geographic flow (downtown → neighborhood → back)
+
+2. **VARIETY ACROSS DAYS**:
+   - Don't repeat the same restaurant or venue
+   - Mix indoor and outdoor activities each day
+   - Balance museums/culture with parks/recreation
+   - Vary the pace - don't make every day intense
+
+3. **REALISTIC TIMING**:
+   - Each activity's start time accounts for:
+     * Duration of previous activity
+     * Travel time (10-30 minutes depending on distance)
+     * Short breaks (5-10 minutes)
+   - Don't schedule activities back-to-back without travel time
+
+4. **MEAL PLANNING**:
+   - Day 1: Dinner only (arrival day)
+   - Full days: Include breakfast/brunch, lunch, and dinner options
+   - Final day: Brunch or lunch before departure
+   - Suggest restaurants near other activities to minimize travel
+
+5. **COST MANAGEMENT**:
+   - Provide realistic per-person costs in USD
+   - Mix free and paid activities${budgetPerPerson > 0 ? `\n   - Stay within $${budgetPerPerson.toFixed(2)} per person budget` : ''}
+   - Consider ${city} pricing levels
+
+6. **COORDINATES**:
+   - Include accurate latitude/longitude for each location
+   - Ensure all locations are within ${radius} miles of city center${coordinates ? `\n   - City center: ${coordinates.lat}, ${coordinates.lng}` : ''}
+
+Return the response in this EXACT JSON format:
+{
+  "days": [
+    {
+      "dayNumber": 1,
+      "date": "${format(startDate, 'yyyy-MM-dd')}",
+      "dayType": "arrival",
+      "summary": "Arrival day - taking it easy",
+      "activities": [
+        {
+          "name": "Activity Name",
+          "address": "Full street address",
+          "time": "2:00 PM - 3:30 PM",
+          "duration": "1.5 hours",
+          "description": "What to do here (1-2 sentences)",
+          "type": "One of: ${preferences.join(', ')}",
+          "coordinates": { "lat": 0.0, "lng": 0.0 },
+          "travelTime": "Start of day",
+          "estimatedCost": 0.0
+        }
+      ]
+    }
+  ]
+}
+
+IMPORTANT:
+- Return ONLY valid JSON, no markdown code blocks
+- Provide realistic places that actually exist in ${city}
+- Include specific addresses
+- Make sure times don't overlap
+- Account for travel time between activities
+- Maintain the same quality and detail for ALL ${numDays} days
+- Each day should have a brief summary describing the day's theme or focus`;
+
+  // Adjust token limit based on trip length
+  const maxTokens = Math.min(8000, 1000 + (numDays * 500));
+
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: 'You are an expert travel planner specializing in multi-day itineraries. Always respond with valid JSON only, no additional text or formatting.',
+      },
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    temperature: 0.8,
+    max_tokens: maxTokens,
+  });
+
+  const responseText = completion.choices[0].message.content?.trim() || '';
+
+  let jsonText = responseText;
+  if (jsonText.startsWith('```json')) {
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+  } else if (jsonText.startsWith('```')) {
+    jsonText = jsonText.replace(/```\n?/g, '');
+  }
+
+  const parsed = JSON.parse(jsonText);
+
+  // Transform the response into MultiDayItinerary format
+  const multiDayItinerary: MultiDayItinerary = {
+    tripId: `trip-${Date.now()}`,
+    city,
+    dateRange: {
+      startDate: startDate,
+      endDate: endDate,
+    },
+    days: parsed.days.map((day: any, index: number) => ({
+      date: addDays(startDate, index),
+      dayNumber: index + 1,
+      dayType: getDayType(index, numDays),
+      summary: day.summary || '',
+      activities: day.activities,
+    })),
+    totalActivities: parsed.days.reduce((sum: number, day: any) => sum + day.activities.length, 0),
+    createdAt: new Date(),
+  };
+
+  return NextResponse.json(multiDayItinerary);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -64,7 +295,7 @@ export async function POST(request: NextRequest) {
 
     // Parse and destructure the request body
     const body: GenerateItineraryRequest = await request.json();
-    const { city, radius, preferences, coordinates, budget, travelers } = body;
+    const { city, radius, preferences, coordinates, budget, travelers, dateRange, pace, dailyHours } = body;
 
     // Validate required fields
     // City, radius, and at least one preference are mandatory
@@ -84,13 +315,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate per-person budget for AI prompt
-    // If budget and travelers are provided, divide total budget by number of travelers
-    // This gives us the budget constraint per person for the AI
-    const budgetPerPerson = budget && travelers ? budget / travelers : 0;
+    // Determine if this is a multi-day itinerary
+    const isMultiDay = dateRange && dateRange.startDate && dateRange.endDate;
+    const numDays = isMultiDay ? getDayCount(dateRange.startDate, dateRange.endDate) : 1;
 
-    // Construct budget information string for the AI prompt
-    // This will be injected into the prompt to guide cost recommendations
+    // Validate trip length
+    if (isMultiDay && numDays > 14) {
+      return NextResponse.json(
+        { error: 'Trip length cannot exceed 14 days' },
+        { status: 400 }
+      );
+    }
+
+    // Calculate per-person budget for AI prompt
+    const budgetPerPerson = budget && travelers ? budget / travelers : 0;
     const budgetInfo = budget && travelers
       ? `\n- Total budget: $${budget} USD for ${travelers} traveler(s) = $${budgetPerPerson.toFixed(2)} per person`
       : travelers
@@ -98,7 +336,28 @@ export async function POST(request: NextRequest) {
       : '';
 
     /**
-     * Construct the AI prompt
+     * Generate itinerary based on trip type (single-day vs multi-day)
+     */
+    if (isMultiDay) {
+      // Multi-day itinerary generation
+      return await generateMultiDayItinerary(
+        openai,
+        city,
+        radius,
+        preferences,
+        coordinates,
+        dateRange,
+        numDays,
+        pace || 'moderate',
+        dailyHours || 10,
+        budgetPerPerson,
+        budgetInfo
+      );
+    }
+
+    // Single-day itinerary generation (existing logic)
+    /**
+     * Construct the AI prompt for single-day
      *
      * This prompt is carefully engineered to:
      * - Guide the AI to generate realistic, geographically optimized itineraries

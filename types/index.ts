@@ -125,6 +125,34 @@ export interface Itinerary {
 }
 
 /**
+ * Date range for multi-day trips
+ *
+ * Used to specify the start and end dates for a trip.
+ *
+ * @example
+ * const dateRange: DateRange = {
+ *   startDate: new Date('2024-11-16'),
+ *   endDate: new Date('2024-11-18')
+ * };
+ */
+export interface DateRange {
+  /** Start date of the trip */
+  startDate: Date;
+
+  /** End date of the trip */
+  endDate: Date;
+}
+
+/**
+ * Trip pace preference
+ *
+ * - relaxed: Fewer activities, more downtime (3-4 activities per full day)
+ * - moderate: Balanced schedule (5-6 activities per full day)
+ * - packed: Full day of activities (7-8 activities per full day)
+ */
+export type TripPace = 'relaxed' | 'moderate' | 'packed';
+
+/**
  * Request body for POST /api/generate-itinerary
  *
  * Contains all user inputs needed to generate a personalized itinerary.
@@ -136,7 +164,10 @@ export interface Itinerary {
  *   preferences: ["Museums", "Restaurants", "Parks & Outdoors"],
  *   coordinates: { lat: 40.7128, lng: -74.0060 },
  *   budget: 200,
- *   travelers: 2
+ *   travelers: 2,
+ *   dateRange: { startDate: new Date('2024-11-16'), endDate: new Date('2024-11-18') },
+ *   pace: 'moderate',
+ *   dailyHours: 10
  * };
  */
 export interface GenerateItineraryRequest {
@@ -173,6 +204,30 @@ export interface GenerateItineraryRequest {
    * Range: 1-20
    */
   travelers?: number;
+
+  /**
+   * Date range for the trip (optional)
+   *
+   * If not provided, generates a single-day itinerary
+   * Multi-day trips are limited to 14 days maximum
+   */
+  dateRange?: DateRange;
+
+  /**
+   * Trip pace preference (optional)
+   *
+   * Controls number of activities per day
+   * Defaults to 'moderate' if not specified
+   */
+  pace?: TripPace;
+
+  /**
+   * Daily activity hours (optional)
+   *
+   * Number of hours of activities per full day (6-12)
+   * Defaults to 10 if not specified
+   */
+  dailyHours?: number;
 }
 
 /**
@@ -564,4 +619,93 @@ export interface ReplaceActivityResponse {
     /** Human-readable summary of changes */
     summary: string;
   };
+}
+
+/**
+ * Multi-Day Itinerary Types
+ *
+ * Types for supporting multi-day trip planning with day-by-day schedules.
+ */
+
+/**
+ * Day type categorization
+ *
+ * - arrival: First day of trip (activities start at 2 PM)
+ * - full: Full day of activities (9 AM - 9 PM)
+ * - departure: Last day of trip (activities end by 2 PM)
+ */
+export type DayType = 'arrival' | 'full' | 'departure';
+
+/**
+ * Single day within a multi-day itinerary
+ *
+ * Contains all activities and metadata for one day of the trip.
+ *
+ * @example
+ * const day: DayItinerary = {
+ *   date: new Date('2024-11-16'),
+ *   dayNumber: 1,
+ *   dayType: 'arrival',
+ *   summary: 'Arrival day - taking it easy',
+ *   activities: [activity1, activity2, activity3]
+ * };
+ */
+export interface DayItinerary {
+  /** Date for this day */
+  date: Date;
+
+  /** Day number (1-indexed) */
+  dayNumber: number;
+
+  /** Type of day (affects activity timing) */
+  dayType: DayType;
+
+  /** Activities for this day in chronological order */
+  activities: ItineraryItem[];
+
+  /** Optional summary describing the day's theme */
+  summary?: string;
+}
+
+/**
+ * Complete multi-day itinerary
+ *
+ * Contains all days of the trip with activities, budget info, and metadata.
+ *
+ * @example
+ * const multiDay: MultiDayItinerary = {
+ *   tripId: 'abc123',
+ *   city: 'New York',
+ *   dateRange: { startDate: new Date('2024-11-16'), endDate: new Date('2024-11-18') },
+ *   days: [day1, day2, day3],
+ *   totalActivities: 12,
+ *   totalCost: 450,
+ *   budgetRemaining: 50,
+ *   createdAt: new Date()
+ * };
+ */
+export interface MultiDayItinerary {
+  /** Unique identifier for this trip */
+  tripId: string;
+
+  /** City/destination name */
+  city: string;
+
+  /** Date range for the entire trip */
+  dateRange: DateRange;
+
+  /** Array of daily itineraries */
+  days: DayItinerary[];
+
+  /** Total number of activities across all days */
+  totalActivities: number;
+
+  /** Total estimated cost for all travelers (optional) */
+  totalCost?: number;
+
+  /** Remaining budget after all activities (optional) */
+  budgetRemaining?: number;
+
+  /** When this itinerary was created */
+  createdAt: Date;
 }

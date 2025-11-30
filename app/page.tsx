@@ -6,9 +6,19 @@ import { Compass, Sparkles, Loader2, Undo2, Redo2, CheckCircle2 } from 'lucide-r
 import dynamic from 'next/dynamic';
 import ItineraryForm from '@/components/ItineraryForm';
 import ItineraryDisplay from '@/components/ItineraryDisplay';
-import { GenerateItineraryRequest, Itinerary } from '@/types';
+import DayNavigation from '@/components/DayNavigation';
+import { GenerateItineraryRequest, Itinerary, MultiDayItinerary } from '@/types';
 
 const MapView = dynamic(() => import('@/components/MapView'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[600px] rounded-3xl bg-gray-100 flex items-center justify-center">
+      <p className="text-gray-500">Loading map...</p>
+    </div>
+  ),
+});
+
+const MultiDayMapView = dynamic(() => import('@/components/MultiDayMapView'), {
   ssr: false,
   loading: () => (
     <div className="w-full h-[600px] rounded-3xl bg-gray-100 flex items-center justify-center">
@@ -29,6 +39,7 @@ const loadingMessages = [
 
 export default function Home() {
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
+  const [multiDayItinerary, setMultiDayItinerary] = useState<MultiDayItinerary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [requestData, setRequestData] = useState<GenerateItineraryRequest | null>(null);
@@ -61,26 +72,53 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate itinerary');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate itinerary');
       }
 
-      const result: Itinerary = await response.json();
+      const result = await response.json();
 
-      const totalCostPerPerson = result.itinerary.reduce(
-        (sum, item) => sum + (item.estimatedCost || 0),
-        0
-      );
+      // Check if this is a multi-day itinerary or single-day
+      if (result.days && Array.isArray(result.days)) {
+        // Multi-day itinerary
+        const multiDay = result as MultiDayItinerary;
 
-      if (data.budget && data.travelers) {
-        result.totalCost = totalCostPerPerson * data.travelers;
-        result.budgetRemaining = data.budget - result.totalCost;
+        // Calculate total costs if budget provided
+        if (data.budget && data.travelers) {
+          const totalCostPerPerson = multiDay.days.reduce(
+            (sum, day) => sum + day.activities.reduce(
+              (daySum, activity) => daySum + (activity.estimatedCost || 0),
+              0
+            ),
+            0
+          );
+          multiDay.totalCost = totalCostPerPerson * data.travelers;
+          multiDay.budgetRemaining = data.budget - multiDay.totalCost;
+        }
+
+        setMultiDayItinerary(multiDay);
+        setItinerary(null);
+      } else {
+        // Single-day itinerary
+        const singleDay = result as Itinerary;
+
+        const totalCostPerPerson = singleDay.itinerary.reduce(
+          (sum, item) => sum + (item.estimatedCost || 0),
+          0
+        );
+
+        if (data.budget && data.travelers) {
+          singleDay.totalCost = totalCostPerPerson * data.travelers;
+          singleDay.budgetRemaining = data.budget - singleDay.totalCost;
+        }
+
+        setItinerary(singleDay);
+        setMultiDayItinerary(null);
+
+        // Initialize history with the first itinerary
+        setItineraryHistory([singleDay]);
+        setHistoryIndex(0);
       }
-
-      setItinerary(result);
-
-      // Initialize history with the first itinerary
-      setItineraryHistory([result]);
-      setHistoryIndex(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       console.error('Error generating itinerary:', err);
@@ -126,6 +164,48 @@ export default function Home() {
     setTimeout(() => setChangeMessage(null), 5000); // Clear after 5 seconds
   };
 
+  const handleReplaceMultiDay = (dayIndex: number, activityIndex: number, newActivity: any, changesSummary: string) => {
+    if (!multiDayItinerary) return;
+
+    // Clone the multi-day itinerary
+    const updatedDays = multiDayItinerary.days.map((day, dIndex) => {
+      if (dIndex === dayIndex) {
+        // Replace the activity at the specified index
+        const updatedActivities = [...day.activities];
+        updatedActivities[activityIndex] = newActivity;
+        return {
+          ...day,
+          activities: updatedActivities,
+        };
+      }
+      return day;
+    });
+
+    const updatedMultiDay: MultiDayItinerary = {
+      ...multiDayItinerary,
+      days: updatedDays,
+    };
+
+    // Recalculate total costs if budget provided
+    if (requestData?.budget && requestData?.travelers) {
+      const totalCostPerPerson = updatedDays.reduce(
+        (sum, day) => sum + day.activities.reduce(
+          (daySum, activity) => daySum + (activity.estimatedCost || 0),
+          0
+        ),
+        0
+      );
+      updatedMultiDay.totalCost = totalCostPerPerson * requestData.travelers;
+      updatedMultiDay.budgetRemaining = requestData.budget - updatedMultiDay.totalCost;
+    }
+
+    setMultiDayItinerary(updatedMultiDay);
+
+    // Show change message
+    setChangeMessage(changesSummary);
+    setTimeout(() => setChangeMessage(null), 5000);
+  };
+
   const handleUndo = () => {
     if (historyIndex > 0) {
       setHistoryIndex(historyIndex - 1);
@@ -146,6 +226,7 @@ export default function Home() {
 
   const handleRegenerate = () => {
     setItinerary(null);
+    setMultiDayItinerary(null);
     setError(null);
     setItineraryHistory([]);
     setHistoryIndex(-1);
@@ -164,7 +245,7 @@ export default function Home() {
       </div>
 
       <div className="relative z-10 container mx-auto px-4 py-8 md:py-12">
-        {!itinerary ? (
+        {!itinerary && !multiDayItinerary ? (
           <>
             {/* Hero Header */}
             <motion.header
@@ -298,14 +379,47 @@ export default function Home() {
               </button>
             </motion.div>
 
-            {/* Results View - Split Screen Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
-              {/* Left: Itinerary */}
-              <div className="lg:max-h-[85vh] lg:overflow-y-auto lg:pr-4 custom-scrollbar">
-                <ItineraryDisplay
-                  itinerary={itinerary}
-                  onRegenerate={handleRegenerate}
-                  onReplaceActivity={handleReplaceActivity}
+            {/* Results View - Different layouts for single-day vs multi-day */}
+            {multiDayItinerary ? (
+              // Multi-Day Itinerary Layout
+              <div className="space-y-8">
+                {/* Header with regenerate button */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-3xl md:text-4xl font-bold gradient-text mb-2">
+                      Your {multiDayItinerary.days.length}-Day Adventure
+                    </h2>
+                    <p className="text-gray-600">
+                      {multiDayItinerary.city} • {multiDayItinerary.totalActivities} total activities
+                    </p>
+                    {multiDayItinerary.totalCost !== undefined && (
+                      <div className="mt-2 text-sm">
+                        <span className="font-semibold text-gray-700">Total Cost:</span>{' '}
+                        <span className="text-primary-600 font-bold">${multiDayItinerary.totalCost.toFixed(2)}</span>
+                        {multiDayItinerary.budgetRemaining !== undefined && (
+                          <span className={`ml-2 ${multiDayItinerary.budgetRemaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            ({multiDayItinerary.budgetRemaining >= 0 ? '$' + multiDayItinerary.budgetRemaining.toFixed(2) + ' remaining' : '$' + Math.abs(multiDayItinerary.budgetRemaining).toFixed(2) + ' over budget'})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleRegenerate}
+                    className="px-4 py-2 bg-white border-2 border-gray-200 rounded-xl hover:border-coral-300 hover:bg-coral-50 transition-all duration-200 font-medium text-gray-700"
+                  >
+                    New Trip
+                  </button>
+                </div>
+
+                {/* Map View */}
+                <MultiDayMapView days={multiDayItinerary.days} />
+
+                {/* Day Navigation */}
+                <DayNavigation
+                  days={multiDayItinerary.days}
+                  city={multiDayItinerary.city}
+                  onReplaceActivity={handleReplaceMultiDay}
                   preferences={
                     requestData
                       ? {
@@ -319,15 +433,38 @@ export default function Home() {
                   }
                 />
               </div>
+            ) : itinerary ? (
+              // Single-Day Itinerary Layout (existing)
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
+                {/* Left: Itinerary */}
+                <div className="lg:max-h-[85vh] lg:overflow-y-auto lg:pr-4 custom-scrollbar">
+                  <ItineraryDisplay
+                    itinerary={itinerary}
+                    onRegenerate={handleRegenerate}
+                    onReplaceActivity={handleReplaceActivity}
+                    preferences={
+                      requestData
+                        ? {
+                            city: requestData.city,
+                            radius: parseInt(requestData.radius),
+                            activities: requestData.preferences,
+                            budget: requestData.budget,
+                            travelers: requestData.travelers,
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
 
-              {/* Right: Map (Sticky on desktop) */}
-              <div className="lg:sticky lg:top-8 lg:h-[85vh]">
-                <MapView
-                  key={`${itinerary.city}-${itinerary.itinerary.length}-${historyIndex}`}
-                  itinerary={itinerary}
-                />
+                {/* Right: Map (Sticky on desktop) */}
+                <div className="lg:sticky lg:top-8 lg:h-[85vh]">
+                  <MapView
+                    key={`${itinerary.city}-${itinerary.itinerary.length}-${historyIndex}`}
+                    itinerary={itinerary}
+                  />
+                </div>
               </div>
-            </div>
+            ) : null}
           </>
         )}
 
