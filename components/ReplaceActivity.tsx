@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, MapPin, Star, Clock, RefreshCw } from 'lucide-react';
 import { ItineraryItem, AlternativeActivity } from '@/types';
@@ -44,6 +45,12 @@ export default function ReplaceActivity({
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Ensure component is mounted (for portal)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   /**
    * Fetch alternative activities from Google Places
@@ -80,6 +87,12 @@ export default function ReplaceActivity({
    * Select a replacement and optimize the itinerary
    */
   const selectReplacement = async (replacement: AlternativeActivity) => {
+    // Close modal first to prevent z-index issues
+    setShowModal(false);
+
+    // Small delay to allow modal close animation to complete
+    await new Promise(resolve => setTimeout(resolve, 200));
+
     setOptimizing(true);
     setError(null);
 
@@ -107,14 +120,13 @@ export default function ReplaceActivity({
 
       const data = await response.json();
 
-      // Close modal
-      setShowModal(false);
-
       // Notify parent with new itinerary
       onReplace(data.newItinerary, data.changes.summary);
     } catch (err) {
       console.error('Error optimizing itinerary:', err);
       setError('Failed to update itinerary. Please try again.');
+      // Reopen modal on error so user can try again
+      setShowModal(true);
     } finally {
       setOptimizing(false);
     }
@@ -148,14 +160,15 @@ export default function ReplaceActivity({
         </div>
       )}
 
-      {/* Alternatives Modal */}
-      <AnimatePresence>
-        {showModal && (
+      {/* Alternatives Modal - Rendered as Portal */}
+      {mounted && showModal && createPortal(
+        <AnimatePresence>
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9998] p-4"
+            style={{ margin: 0, padding: 0 }}
             onClick={() => !optimizing && setShowModal(false)}
           >
             <motion.div
@@ -163,7 +176,7 @@ export default function ReplaceActivity({
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               transition={{ type: 'spring', duration: 0.3 }}
-              className="glass rounded-3xl max-w-3xl w-full max-h-[85vh] overflow-hidden shadow-2xl border border-white/30"
+              className="glass rounded-3xl max-w-3xl w-full max-h-[85vh] overflow-hidden shadow-2xl border border-white/30 mx-4"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
@@ -283,24 +296,26 @@ export default function ReplaceActivity({
               </div>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
-      {/* Optimizing Overlay */}
-      <AnimatePresence>
-        {optimizing && (
+      {/* Optimizing Overlay - Rendered as Portal */}
+      {mounted && optimizing && createPortal(
+        <AnimatePresence>
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999]"
+            style={{ margin: 0, padding: 0 }}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: 'spring', duration: 0.5 }}
-              className="glass rounded-3xl p-8 md:p-12 max-w-md w-full shadow-2xl border border-white/30"
+              className="glass rounded-3xl p-8 md:p-12 max-w-md w-full mx-4 shadow-2xl border border-white/30"
             >
               <div className="flex flex-col items-center text-center">
                 {/* Animated Icon */}
@@ -335,15 +350,15 @@ export default function ReplaceActivity({
                   Optimizing Your Itinerary
                 </h3>
                 <div className="space-y-2 text-gray-600 mb-6">
-                  <p className="flex items-center gap-2">
+                  <p className="flex items-center justify-center gap-2">
                     <Clock className="w-4 h-4" />
                     Finding best route
                   </p>
-                  <p className="flex items-center gap-2">
+                  <p className="flex items-center justify-center gap-2">
                     <Clock className="w-4 h-4" />
                     Adjusting times
                   </p>
-                  <p className="flex items-center gap-2">
+                  <p className="flex items-center justify-center gap-2">
                     <Clock className="w-4 h-4" />
                     Checking for conflicts
                   </p>
@@ -366,8 +381,9 @@ export default function ReplaceActivity({
               </div>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
     </>
   );
 }
