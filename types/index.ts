@@ -293,3 +293,178 @@ export const RADIUS_OPTIONS = [
   { value: '10', label: 'Within 10 miles' },
   { value: '20', label: 'Within 20 miles' },
 ];
+
+/**
+ * Google Places API Integration Types
+ *
+ * These types represent data from Google Places API used to enrich
+ * itinerary items with real reviews, ratings, photos, and other details.
+ */
+
+/**
+ * Individual review from Google Places
+ *
+ * Contains user-generated review data including rating, text, and author info.
+ *
+ * @example
+ * const review: GoogleReview = {
+ *   author_name: "Sarah Johnson",
+ *   rating: 5,
+ *   text: "Amazing museum with incredible exhibits!",
+ *   time: 1703001600,
+ *   relative_time_description: "2 weeks ago"
+ * };
+ */
+export interface GoogleReview {
+  /** Name of the review author */
+  author_name: string;
+
+  /** Google Maps profile URL of the author (optional) */
+  author_url?: string;
+
+  /** URL to author's profile photo (optional) */
+  profile_photo_url?: string;
+
+  /** Star rating given by the reviewer (1-5) */
+  rating: number;
+
+  /** Full text of the review */
+  text: string;
+
+  /** Unix timestamp when review was posted */
+  time: number;
+
+  /** Human-readable time description (e.g., "2 weeks ago") */
+  relative_time_description?: string;
+}
+
+/**
+ * Photo reference from Google Places
+ *
+ * Contains reference to a photo that can be fetched via Google Places Photo API.
+ * Use photo_reference to construct photo URL.
+ *
+ * @example
+ * // Construct photo URL:
+ * const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photo.photo_reference}&key=${apiKey}`;
+ */
+export interface GooglePlacePhoto {
+  /** Reference string used to fetch the actual photo */
+  photo_reference: string;
+
+  /** Original photo height in pixels */
+  height: number;
+
+  /** Original photo width in pixels */
+  width: number;
+
+  /** HTML attributions for the photo (optional) */
+  html_attributions?: string[];
+}
+
+/**
+ * Complete Google Places data for a location
+ *
+ * Contains all enriched data from Google Places API including
+ * ratings, reviews, photos, pricing, and operational details.
+ *
+ * @example
+ * const placeData: GooglePlaceData = {
+ *   place_id: "ChIJKxDbe_lYwokRVf__s8CPn-o",
+ *   rating: 4.6,
+ *   user_ratings_total: 12543,
+ *   reviews: [...],
+ *   photos: [...],
+ *   price_level: 3,
+ *   opening_hours: { open_now: true },
+ *   website: "https://www.metmuseum.org"
+ * };
+ */
+export interface GooglePlaceData {
+  /** Unique Google Places identifier */
+  place_id: string;
+
+  /** Average star rating (1-5) */
+  rating?: number;
+
+  /** Total number of user ratings/reviews */
+  user_ratings_total?: number;
+
+  /** Array of reviews (up to 5 most recent/relevant) */
+  reviews?: GoogleReview[];
+
+  /** Array of photo references */
+  photos?: GooglePlacePhoto[];
+
+  /**
+   * Price level indicator (0-4)
+   *
+   * - 0: Free
+   * - 1: $ (Inexpensive)
+   * - 2: $$ (Moderate)
+   * - 3: $$$ (Expensive)
+   * - 4: $$$$ (Very Expensive)
+   */
+  price_level?: number;
+
+  /** Opening hours information */
+  opening_hours?: {
+    /** Whether the place is currently open */
+    open_now: boolean;
+
+    /** Array of opening hours for each day of the week (optional) */
+    weekday_text?: string[];
+  };
+
+  /** Formatted phone number (e.g., "(212) 535-7710") */
+  formatted_phone_number?: string;
+
+  /** Website URL for the place */
+  website?: string;
+
+  /** Google-formatted full address */
+  formatted_address?: string;
+}
+
+/**
+ * Request body for POST /api/enrich-place
+ *
+ * Used to fetch Google Places data for a specific activity.
+ *
+ * @example
+ * const request: EnrichPlaceRequest = {
+ *   name: "Metropolitan Museum of Art",
+ *   address: "1000 5th Ave, New York, NY 10028",
+ *   city: "New York"
+ * };
+ */
+export interface EnrichPlaceRequest {
+  /** Name of the place/activity */
+  name: string;
+
+  /** Address from the itinerary */
+  address: string;
+
+  /** City name for search context */
+  city: string;
+
+  /** Optional coordinates to improve search accuracy */
+  coordinates?: Coordinates;
+}
+
+/**
+ * Extended itinerary item with Google Places data
+ *
+ * Includes all original itinerary fields plus optional Google data
+ * and loading/error states for progressive enhancement.
+ */
+export interface EnrichedItineraryItem extends ItineraryItem {
+  /** Google Places data (if successfully fetched) */
+  googleData?: GooglePlaceData;
+
+  /** Loading state for Google data fetch */
+  googleLoading?: boolean;
+
+  /** Error message if Google data fetch failed */
+  googleError?: string;
+}

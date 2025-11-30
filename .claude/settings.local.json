@@ -7,7 +7,8 @@
       "Bash(npm run build:*)",
       "Bash(npm run dev:*)",
       "Bash(node --version:*)",
-      "Bash(timeout 10 bash:*)"
+      "Bash(timeout 10 bash:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

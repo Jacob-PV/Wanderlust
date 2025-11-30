@@ -18,6 +18,17 @@ A visually stunning, premium web application that generates personalized travel 
 - **Customizable Preferences**: Select from 10+ activity types including restaurants, museums, parks, and more
 - **Radius Selection**: Choose search radius from 2 to 20 miles
 
+### Google Places Integration (NEW!)
+- ⭐ **Real Star Ratings**: See actual ratings from Google Places (1-5 stars with review counts)
+- 💬 **Genuine Reviews**: Read real user reviews with author names and profile photos
+- 📸 **Place Photos**: View high-quality photos from Google Places for each activity
+- 💵 **Price Levels**: See cost indicators ($, $$, $$$, $$$$) from Google
+- ⏰ **Open/Closed Status**: Know if places are currently open with live status badges
+- 📞 **Contact Information**: Direct links to websites and phone numbers
+- 📍 **Verified Addresses**: Google-verified addresses for accurate navigation
+- 🔄 **Progressive Loading**: Itinerary loads instantly, reviews enrich progressively
+- 💰 **Smart Caching**: 24-hour cache reduces API costs significantly
+
 ### Premium UI/UX
 - **Wanderlust Theme**: Beautiful travel-inspired color palette (deep teal, warm coral, golden amber)
 - **Glassmorphism Design**: Modern glass-effect containers with backdrop blur
@@ -40,6 +51,7 @@ A visually stunning, premium web application that generates personalized travel 
 - **Map**: Leaflet & React Leaflet with custom markers
 - **Geocoding**: OpenStreetMap Nominatim API
 - **AI**: OpenAI API (GPT-4o-mini)
+- **Reviews & Enrichment**: Google Places API
 - **Fonts**: Google Fonts (Inter & Manrope)
 - **Deployment**: Vercel-ready
 
@@ -48,6 +60,7 @@ A visually stunning, premium web application that generates personalized travel 
 - Node.js 18+ installed
 - npm or yarn package manager
 - OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
+- Google Places API key (optional, for reviews and ratings - [Setup guide](GOOGLE_SETUP.md))
 
 ## Installation
 
@@ -69,10 +82,19 @@ A visually stunning, premium web application that generates personalized travel 
    cp .env.example .env.local
    ```
 
-   Edit `.env.local` and add your OpenAI API key:
+   Edit `.env.local` and add your API keys:
    ```env
+   # Required
    OPENAI_API_KEY=your_openai_api_key_here
+
+   # Optional (for Google Places reviews and ratings)
+   GOOGLE_PLACES_API_KEY=your_google_places_api_key_here
+
+   # Optional (for displaying Google Place photos)
+   NEXT_PUBLIC_GOOGLE_PLACES_API_KEY=your_client_google_api_key_here
    ```
+
+   > **Note**: The app works without Google Places API, but adding it provides real reviews, ratings, photos, and contact information. See [GOOGLE_SETUP.md](GOOGLE_SETUP.md) for detailed setup instructions.
 
 4. **Run the development server**
    ```bash
@@ -98,18 +120,24 @@ A visually stunning, premium web application that generates personalized travel 
 travel_itenerary/
 ├── app/
 │   ├── api/
-│   │   └── generate-itinerary/
-│   │       └── route.ts          # API route for itinerary generation
+│   │   ├── generate-itinerary/
+│   │   │   └── route.ts          # API route for itinerary generation
+│   │   └── enrich-place/
+│   │       └── route.ts          # API route for Google Places enrichment
 │   ├── layout.tsx                # Root layout
 │   ├── page.tsx                  # Main page component
 │   └── globals.css               # Global styles
 ├── components/
 │   ├── ItineraryForm.tsx         # Form component with city autocomplete
-│   ├── ItineraryDisplay.tsx      # Itinerary display component
-│   └── MapView.tsx               # Interactive map component
+│   ├── ItineraryDisplay.tsx      # Itinerary display with Google Places data
+│   ├── MapView.tsx               # Interactive map component
+│   ├── RatingDisplay.tsx         # Star rating display component
+│   └── ReviewCard.tsx            # Individual review card component
 ├── types/
 │   └── index.ts                  # TypeScript type definitions
 ├── .env.example                  # Environment variables template
+├── GOOGLE_SETUP.md               # Google Places API setup guide
+├── CLAUDE.md                     # AI assistant context and conventions
 ├── next.config.ts                # Next.js configuration
 ├── tailwind.config.ts            # Tailwind CSS configuration
 └── package.json                  # Project dependencies
@@ -193,9 +221,15 @@ Your app will be live at `https://your-project.vercel.app`
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `OPENAI_API_KEY` | Your OpenAI API key | Yes |
+| `OPENAI_API_KEY` | Your OpenAI API key for itinerary generation | Yes |
+| `GOOGLE_PLACES_API_KEY` | Server-side Google Places API key for reviews/ratings | No (but recommended) |
+| `NEXT_PUBLIC_GOOGLE_PLACES_API_KEY` | Client-side Google Places API key for photos | No (optional) |
 
-Note: No Mapbox token is required as this app uses OpenStreetMap's free Nominatim API for geocoding and Leaflet for mapping.
+**Notes**:
+- The app works without Google Places API keys, but adding them provides real reviews, ratings, photos, and contact information
+- See [GOOGLE_SETUP.md](GOOGLE_SETUP.md) for detailed setup instructions
+- Google provides $200/month free credit (~4,000 place enrichments)
+- No Mapbox token required - uses OpenStreetMap's free Nominatim API
 
 ## Development
 
@@ -212,7 +246,7 @@ Note: No Mapbox token is required as this app uses OpenStreetMap's free Nominati
 Handles user input with city autocomplete using OpenStreetMap Nominatim API.
 
 #### ItineraryDisplay
-Displays the generated itinerary in a timeline format with color-coded activity types.
+Displays the generated itinerary in a timeline format with color-coded activity types. Progressively enriches each activity with Google Places data (ratings, reviews, photos, contact info).
 
 #### MapView
 Renders an interactive Leaflet map with numbered markers for each location.
@@ -222,12 +256,13 @@ Renders an interactive Leaflet map with numbered markers for each location.
 - [ ] Save/export itinerary feature
 - [ ] Share itinerary via link
 - [ ] Multiple day itineraries
-- [ ] Budget considerations
 - [ ] Weather integration
 - [ ] User accounts to save itineraries
 - [ ] PDF export
 - [ ] Custom activity durations
-- [ ] Route optimization
+- [ ] Route optimization with real-time traffic
+- [ ] Booking integration (OpenTable, Resy, etc.)
+- [ ] Redis/database caching for Google Places data
 
 ## Technologies Used
 
@@ -239,6 +274,7 @@ Renders an interactive Leaflet map with numbered markers for each location.
 - [Leaflet](https://leafletjs.com/) - Interactive maps
 - [React Leaflet](https://react-leaflet.js.org/) - React wrapper for Leaflet
 - [OpenAI](https://openai.com/) - AI itinerary generation
+- [Google Places API](https://developers.google.com/maps/documentation/places) - Real reviews, ratings, and place data
 - [OpenStreetMap](https://www.openstreetmap.org/) - Free geocoding and maps
 - [Google Fonts](https://fonts.google.com/) - Inter & Manrope typefaces
 

@@ -13,6 +13,7 @@ The Travel Itinerary Generator is a Next.js web app that uses OpenAI's GPT-4o-mi
 - **Next.js 15 with App Router**: Enables server-side API routes for secure OpenAI integration, SSR for SEO, built-in optimizations, and seamless Vercel deployment
 - **Leaflet instead of Mapbox**: Free and open-source with no API keys required, lighter weight, good community support. User specifically requested this over Mapbox to avoid costs and API key management
 - **OpenAI GPT-4o-mini**: Cost-effective ($0.15/1M input tokens vs $5/1M for GPT-4), fast response times (~2-4 seconds), sufficient capability for structured JSON generation. Each itinerary costs ~$0.00085
+- **Google Places API**: Enriches activities with real reviews, ratings, photos, pricing, and contact details. $200/month free tier covers ~4,000 place enrichments. Optional but highly recommended for production
 - **OpenStreetMap Nominatim**: Free geocoding service for city autocomplete with no API key required
 - **TypeScript**: Type safety prevents runtime errors, excellent IDE support, self-documenting code
 - **Tailwind CSS**: Rapid UI development, consistent design system, small bundle size with purging
@@ -28,8 +29,10 @@ The Travel Itinerary Generator is a Next.js web app that uses OpenAI's GPT-4o-mi
 
 **Component Organization**:
 - By feature: ItineraryForm (input), ItineraryDisplay (results), MapView (visualization)
+- Google Places UI: RatingDisplay (star ratings), ReviewCard (individual reviews)
 - Separation of concerns: page.tsx orchestrates, components handle specific UI
 - Client components marked with 'use client' directive
+- Progressive enrichment: ActivityCard fetches Google data independently
 
 **State Management**:
 - React useState for local state (no Redux/Zustand needed for this size)
@@ -98,6 +101,78 @@ The Travel Itinerary Generator is a Next.js web app that uses OpenAI's GPT-4o-mi
   ```
 
 ## External API Guidelines
+
+### Google Places API
+
+**Setup**: See [GOOGLE_SETUP.md](GOOGLE_SETUP.md) for complete setup instructions
+
+**Model**: Progressive enrichment
+- **Cost per place**: ~$0.049 (Text Search + Place Details)
+- **Free tier**: $200/month credit (~4,000 place enrichments)
+- **Caching**: 24-hour in-memory cache (production should use Redis/database)
+
+**API Flow**:
+1. **Text Search**: Find place by name + city (returns `place_id`)
+2. **Place Details**: Get reviews, ratings, photos using `place_id`
+
+**Fields Requested** (cost optimization):
+```typescript
+const fields = [
+  'place_id',
+  'name',
+  'rating',
+  'user_ratings_total',
+  'reviews',
+  'photos',
+  'price_level',
+  'opening_hours',
+  'formatted_phone_number',
+  'website',
+  'formatted_address',
+].join(',');
+```
+
+**Error Handling**:
+- Handle `ZERO_RESULTS` gracefully (place not found)
+- Handle `OVER_QUERY_LIMIT` (quota exceeded)
+- Silently fail for non-critical enrichment
+- Display itinerary even if Google data unavailable
+
+**Cost Optimization Tips**:
+- ✅ Server-side caching with 24h TTL
+- ✅ Only request needed fields
+- ✅ Progressive loading (don't block itinerary display)
+- ✅ Graceful degradation (app works without Google data)
+- Consider Redis/database caching for production
+
+**Progressive Loading Pattern**:
+```typescript
+// Each ActivityCard fetches its own Google data
+useEffect(() => {
+  const enrichPlace = async () => {
+    const response = await fetch('/api/enrich-place', {
+      method: 'POST',
+      body: JSON.stringify({ name, address, city, coordinates }),
+    });
+    if (response.ok) {
+      setEnrichedData(await response.json());
+    }
+  };
+  enrichPlace();
+}, [name, address, city]);
+```
+
+**Photo Display**:
+```typescript
+// Photos require client-side API key (NEXT_PUBLIC_)
+const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photoRef}&key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}`;
+```
+
+**Security**:
+- Server key (`GOOGLE_PLACES_API_KEY`): API restrictions only
+- Client key (`NEXT_PUBLIC_GOOGLE_PLACES_API_KEY`): HTTP referrer restrictions
+- Never expose server key to client
+- Set up billing alerts in Google Cloud
 
 ### OpenAI API
 
@@ -361,20 +436,31 @@ const budgetPerPerson = budget && travelers ? budget / travelers : 0;
 
 **Development** (`.env.local`):
 ```env
+# Required
 OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxx
+
+# Required for Google Places integration
+GOOGLE_PLACES_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+# Optional - for displaying Google Place photos
+NEXT_PUBLIC_GOOGLE_PLACES_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ```
 
 **Production** (Vercel Dashboard):
 - `OPENAI_API_KEY`: Get from [OpenAI Platform](https://platform.openai.com/api-keys)
+- `GOOGLE_PLACES_API_KEY`: Get from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) - See [GOOGLE_SETUP.md](GOOGLE_SETUP.md)
+- `NEXT_PUBLIC_GOOGLE_PLACES_API_KEY`: Optional, for photos only
 
-**No other API keys needed** - Nominatim and OSM are free without keys
+**Note**: Nominatim and OSM are still free without keys
 
 ### Setup Steps
 1. `npm install` - Install all dependencies
 2. Create `.env.local` from `.env.example`
 3. Add OpenAI API key to `.env.local`
-4. `npm run dev` - Start development server
-5. Open http://localhost:3000
+4. (Optional) Follow [GOOGLE_SETUP.md](GOOGLE_SETUP.md) to set up Google Places API
+5. Add Google Places API key(s) to `.env.local`
+6. `npm run dev` - Start development server
+7. Open http://localhost:3000
 
 ## When Making Changes
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Clock,
@@ -8,8 +9,14 @@ import {
   ArrowLeft,
   Navigation,
   Sparkles,
+  Phone,
+  Globe,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
-import { Itinerary, ItineraryItem } from '@/types';
+import { Itinerary, ItineraryItem, EnrichedItineraryItem, GooglePlaceData, EnrichPlaceRequest } from '@/types';
+import RatingDisplay from './RatingDisplay';
+import ReviewCard from './ReviewCard';
 
 interface ItineraryDisplayProps {
   itinerary: Itinerary;
@@ -33,6 +40,253 @@ const activityTypeColors: Record<string, string> = {
 const getActivityColor = (type: string): string => {
   return activityTypeColors[type] || 'bg-gray-100 text-gray-800 border-gray-300';
 };
+
+/**
+ * Helper to get price level display
+ */
+const getPriceLevel = (level?: number): string => {
+  if (level === undefined) return '';
+  const symbols = ['Free', '$', '$$', '$$$', '$$$$'];
+  return symbols[level] || '';
+};
+
+/**
+ * Individual Activity Card Component
+ */
+interface ActivityCardProps {
+  item: ItineraryItem;
+  index: number;
+  city: string;
+}
+
+function ActivityCard({ item, index, city }: ActivityCardProps) {
+  const [enrichedData, setEnrichedData] = useState<GooglePlaceData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+
+  // Fetch Google Places data on mount
+  useEffect(() => {
+    const enrichPlace = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const requestBody: EnrichPlaceRequest = {
+          name: item.name,
+          address: item.address,
+          city: city,
+          coordinates: item.coordinates,
+        };
+
+        const response = await fetch('/api/enrich-place', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (response.ok) {
+          const data: GooglePlaceData = await response.json();
+          setEnrichedData(data);
+        } else {
+          // Silently fail - not critical
+          console.log(`Could not enrich: ${item.name}`);
+        }
+      } catch (err) {
+        console.error('Error enriching place:', err);
+        setError('Unable to load reviews');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    enrichPlace();
+  }, [item.name, item.address, item.coordinates, city]);
+
+  const hasReviews = enrichedData?.reviews && enrichedData.reviews.length > 0;
+  const displayedReviews = showAllReviews ? enrichedData?.reviews : enrichedData?.reviews?.slice(0, 2);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.4 + index * 0.1 }}
+      whileHover={{ scale: 1.02 }}
+      className="card-hover p-6 md:p-8"
+    >
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
+        <div className="flex items-start gap-4 flex-1">
+          {/* Number Badge */}
+          <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-primary-600 to-primary-500 text-white rounded-2xl flex items-center justify-center font-bold text-lg shadow-lg">
+            {index + 1}
+          </div>
+
+          {/* Activity Info */}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
+              {item.name}
+            </h3>
+
+            {/* Google Rating */}
+            {enrichedData?.rating && (
+              <div className="mb-3">
+                <RatingDisplay
+                  rating={enrichedData.rating}
+                  reviewCount={enrichedData.user_ratings_total}
+                  size="md"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 text-gray-600 mb-3">
+              <MapPin className="w-4 h-4 flex-shrink-0" />
+              <p className="text-sm">
+                {enrichedData?.formatted_address || item.address}
+              </p>
+            </div>
+
+            {/* Price Level & Open Status */}
+            {(enrichedData?.price_level !== undefined || enrichedData?.opening_hours) && (
+              <div className="flex flex-wrap items-center gap-3 mb-3">
+                {enrichedData.price_level !== undefined && (
+                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-lg text-sm font-semibold">
+                    {getPriceLevel(enrichedData.price_level)}
+                  </span>
+                )}
+                {enrichedData.opening_hours && (
+                  <span
+                    className={`px-3 py-1 rounded-lg text-sm font-semibold ${
+                      enrichedData.opening_hours.open_now
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}
+                  >
+                    {enrichedData.opening_hours.open_now ? '✓ Open now' : '✗ Closed'}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Contact Info */}
+            {(enrichedData?.website || enrichedData?.formatted_phone_number) && (
+              <div className="flex flex-wrap items-center gap-4 text-sm mb-3">
+                {enrichedData.website && (
+                  <a
+                    href={enrichedData.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    <Globe className="w-4 h-4" />
+                    <span>Website</span>
+                  </a>
+                )}
+                {enrichedData.formatted_phone_number && (
+                  <a
+                    href={`tel:${enrichedData.formatted_phone_number}`}
+                    className="flex items-center gap-1 text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span>{enrichedData.formatted_phone_number}</span>
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Activity Type Badge */}
+        <span
+          className={`px-4 py-2 rounded-xl text-xs font-bold border-2 whitespace-nowrap ${getActivityColor(
+            item.type
+          )}`}
+        >
+          {item.type}
+        </span>
+      </div>
+
+      {/* Photo from Google Places */}
+      {enrichedData?.photos?.[0] && (
+        <div className="mb-4">
+          <img
+            src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${enrichedData.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}`}
+            alt={item.name}
+            className="w-full h-48 md:h-64 object-cover rounded-xl shadow-md"
+            loading="lazy"
+          />
+        </div>
+      )}
+
+      {/* Time and Cost Info */}
+      <div className="flex flex-wrap items-center gap-4 md:gap-6 text-sm mb-4">
+        <div className="flex items-center gap-2 text-gray-700">
+          <Clock className="w-4 h-4 text-primary-600" />
+          <span className="font-semibold">{item.time}</span>
+        </div>
+        <div className="text-gray-400">•</div>
+        <div className="text-gray-600 font-medium">{item.duration}</div>
+        {item.estimatedCost !== undefined && (
+          <>
+            <div className="text-gray-400">•</div>
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-green-600" />
+              <span
+                className={`font-bold ${
+                  item.estimatedCost === 0 ? 'text-green-600' : 'text-gray-700'
+                }`}
+              >
+                {item.estimatedCost === 0
+                  ? 'Free'
+                  : `$${item.estimatedCost.toFixed(2)}/person`}
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Description */}
+      <p className="text-gray-700 leading-relaxed mb-4">{item.description}</p>
+
+      {/* Reviews Section */}
+      {hasReviews && (
+        <div className="mt-6 space-y-4">
+          <button
+            onClick={() => setShowAllReviews(!showAllReviews)}
+            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-semibold transition-colors"
+          >
+            {showAllReviews ? (
+              <>
+                <ChevronUp className="w-4 h-4" />
+                Hide {enrichedData.reviews?.length} {enrichedData.reviews?.length === 1 ? 'review' : 'reviews'}
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4" />
+                Show {enrichedData.reviews?.length} {enrichedData.reviews?.length === 1 ? 'review' : 'reviews'}
+              </>
+            )}
+          </button>
+
+          {showAllReviews && (
+            <div className="space-y-3">
+              {enrichedData.reviews?.map((review, idx) => (
+                <ReviewCard key={idx} review={review} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="mt-4 text-sm text-gray-500 flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+          Loading reviews and details...
+        </div>
+      )}
+    </motion.div>
+  );
+}
 
 export default function ItineraryDisplay({ itinerary, onRegenerate }: ItineraryDisplayProps) {
   const totalCostPerPerson = itinerary.itinerary.reduce(
@@ -139,73 +393,8 @@ export default function ItineraryDisplay({ itinerary, onRegenerate }: ItineraryD
               </motion.div>
             )}
 
-            {/* Activity Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 + index * 0.1 }}
-              whileHover={{ scale: 1.02 }}
-              className="card-hover p-6 md:p-8"
-            >
-              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
-                <div className="flex items-start gap-4 flex-1">
-                  {/* Number Badge */}
-                  <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-primary-600 to-primary-500 text-white rounded-2xl flex items-center justify-center font-bold text-lg shadow-lg">
-                    {index + 1}
-                  </div>
-
-                  {/* Activity Info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
-                      {item.name}
-                    </h3>
-                    <div className="flex items-center gap-2 text-gray-600 mb-3">
-                      <MapPin className="w-4 h-4 flex-shrink-0" />
-                      <p className="text-sm">{item.address}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Activity Type Badge */}
-                <span
-                  className={`px-4 py-2 rounded-xl text-xs font-bold border-2 whitespace-nowrap ${getActivityColor(
-                    item.type
-                  )}`}
-                >
-                  {item.type}
-                </span>
-              </div>
-
-              {/* Time and Cost Info */}
-              <div className="flex flex-wrap items-center gap-4 md:gap-6 text-sm mb-4 ml-16">
-                <div className="flex items-center gap-2 text-gray-700">
-                  <Clock className="w-4 h-4 text-primary-600" />
-                  <span className="font-semibold">{item.time}</span>
-                </div>
-                <div className="text-gray-400">•</div>
-                <div className="text-gray-600 font-medium">{item.duration}</div>
-                {item.estimatedCost !== undefined && (
-                  <>
-                    <div className="text-gray-400">•</div>
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-green-600" />
-                      <span
-                        className={`font-bold ${
-                          item.estimatedCost === 0 ? 'text-green-600' : 'text-gray-700'
-                        }`}
-                      >
-                        {item.estimatedCost === 0
-                          ? 'Free'
-                          : `$${item.estimatedCost.toFixed(2)}/person`}
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Description */}
-              <p className="text-gray-700 leading-relaxed ml-16">{item.description}</p>
-            </motion.div>
+            {/* Activity Card with Google Places enrichment */}
+            <ActivityCard item={item} index={index} city={itinerary.city} />
           </div>
         ))}
       </div>
