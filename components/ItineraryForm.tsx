@@ -80,7 +80,7 @@ export default function ItineraryForm({ onSubmit, isLoading }: ItineraryFormProp
         const response = await fetch(
           `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
             city
-          )}&format=json&limit=5&addressdetails=1&featuretype=city`,
+          )}&format=json&limit=20&addressdetails=1`,
           {
             headers: {
               'User-Agent': 'TravelItineraryApp/1.0'
@@ -88,7 +88,29 @@ export default function ItineraryForm({ onSubmit, isLoading }: ItineraryFormProp
           }
         );
         const data: NominatimResult[] = await response.json();
-        setSuggestions(data);
+
+        // Filter to only show actual cities (not neighborhoods, counties, etc.)
+        const cityResults = data.filter((result) => {
+          const addressType = result.addresstype?.toLowerCase();
+          const type = result.type?.toLowerCase();
+          const osmClass = result.class?.toLowerCase();
+
+          // Accept: city, town, village, municipality
+          return (
+            addressType === 'city' ||
+            addressType === 'town' ||
+            addressType === 'village' ||
+            addressType === 'municipality' ||
+            type === 'city' ||
+            type === 'town' ||
+            type === 'village' ||
+            type === 'municipality' ||
+            (osmClass === 'place' && (type === 'city' || type === 'town' || type === 'village'))
+          );
+        });
+
+        // Limit to 5 results
+        setSuggestions(cityResults.slice(0, 5));
         setShowSuggestions(true);
       } catch (error) {
         console.error('Error fetching city suggestions:', error);
@@ -177,12 +199,9 @@ export default function ItineraryForm({ onSubmit, isLoading }: ItineraryFormProp
                       className="w-full px-5 py-4 text-left hover:bg-primary-50 transition-all duration-200 border-b border-gray-50 last:border-b-0 flex items-center gap-3 group"
                     >
                       <MapPin className="w-4 h-4 text-gray-400 group-hover:text-primary-600 transition-colors" />
-                      <div>
-                        <p className="text-gray-900 font-medium group-hover:text-primary-600 transition-colors">
-                          {result.display_name.split(',')[0]}
-                        </p>
-                        <p className="text-sm text-gray-500">{result.display_name}</p>
-                      </div>
+                      <p className="text-gray-900 font-medium group-hover:text-primary-600 transition-colors">
+                        {result.display_name}
+                      </p>
                     </motion.button>
                   ))}
                 </motion.div>
