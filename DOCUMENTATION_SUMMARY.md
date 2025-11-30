@@ -131,7 +131,6 @@ This document summarizes all documentation created for the Travel Itinerary Gene
   - `ActivityType`: Activity type union documentation
 - JSDoc comments for constants:
   - `ACTIVITY_TYPES`: Array purpose and usage
-  - `RADIUS_OPTIONS`: Radius selection options
 - Usage examples for each interface
 - Field-level documentation for all properties
 

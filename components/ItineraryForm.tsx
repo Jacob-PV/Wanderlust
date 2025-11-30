@@ -23,7 +23,6 @@ import {
 import {
   GenerateItineraryRequest,
   ACTIVITY_TYPES,
-  RADIUS_OPTIONS,
   NominatimResult,
   Coordinates,
   ActivityType,
@@ -192,29 +191,26 @@ export default function ItineraryForm({ onSubmit, isLoading }: ItineraryFormProp
           </div>
         </div>
 
-        {/* Radius Selector */}
+        {/* Radius Slider */}
         <div className="space-y-3">
-          <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+          <label htmlFor="radius" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
             <Circle className="w-4 h-4 text-primary-600" />
             Search Radius
           </label>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {RADIUS_OPTIONS.map((option) => (
-              <motion.button
-                key={option.value}
-                type="button"
-                onClick={() => setRadius(option.value)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className={`px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
-                  radius === option.value
-                    ? 'bg-gradient-to-r from-primary-600 to-primary-500 text-white shadow-lg shadow-primary-500/30'
-                    : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-primary-300 hover:bg-primary-50'
-                }`}
-              >
-                {option.label.replace('Within ', '')}
-              </motion.button>
-            ))}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-lg font-semibold text-primary-600">{radius} miles</span>
+              <span className="text-sm text-gray-500">1 - 100 miles</span>
+            </div>
+            <input
+              type="range"
+              id="radius"
+              min="1"
+              max="100"
+              value={radius}
+              onChange={(e) => setRadius(e.target.value)}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
+            />
           </div>
         </div>
 

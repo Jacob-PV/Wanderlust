@@ -143,7 +143,7 @@ export interface GenerateItineraryRequest {
   /** Full city name from Nominatim autocomplete */
   city: string;
 
-  /** Search radius in miles ("2", "5", "10", or "20") */
+  /** Search radius in miles (1-100) as string */
   radius: string;
 
   /** Array of selected activity types (min 1 required) */
@@ -278,21 +278,6 @@ export const ACTIVITY_TYPES: ActivityType[] = [
   'Sports & Recreation',
 ];
 
-/**
- * Available search radius options
- *
- * Defines how far from city center to look for activities.
- * Used to populate the radius dropdown in ItineraryForm.
- *
- * Smaller radius = more walkable itinerary
- * Larger radius = more driving/transit required
- */
-export const RADIUS_OPTIONS = [
-  { value: '2', label: 'Within 2 miles' },
-  { value: '5', label: 'Within 5 miles' },
-  { value: '10', label: 'Within 10 miles' },
-  { value: '20', label: 'Within 20 miles' },
-];
 
 /**
  * Google Places API Integration Types
