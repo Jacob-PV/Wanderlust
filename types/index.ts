@@ -83,6 +83,28 @@ export interface ItineraryItem {
    * - Displayed as "$X.XX/person" or "Free"
    */
   estimatedCost?: number;
+
+  /**
+   * Validation warning message (optional)
+   *
+   * Set when activity timing conflicts with opening hours.
+   * Examples: "Opens at 10:00 AM", "Closes at 6:00 PM"
+   */
+  validationWarning?: string;
+
+  /**
+   * Whether this activity needs replacement due to timing conflicts (optional)
+   *
+   * Set to true if timing cannot be automatically adjusted
+   */
+  needsReplacement?: boolean;
+
+  /**
+   * Google Places data (optional, populated during enrichment)
+   *
+   * Contains ratings, reviews, photos, and opening hours from Google Places API
+   */
+  googleData?: GooglePlaceData;
 }
 
 /**
@@ -403,6 +425,28 @@ export interface GooglePlacePhoto {
 }
 
 /**
+ * Opening hours period for a specific time range
+ *
+ * Represents a single opening/closing period from Google Places API.
+ */
+export interface OpeningHoursPeriod {
+  /** Opening time information */
+  open: {
+    /** Day of week (0 = Sunday, 1 = Monday, ..., 6 = Saturday) */
+    day: number;
+    /** Time in 24-hour format as 4-digit string (e.g., "0900" for 9:00 AM, "1730" for 5:30 PM) */
+    time: string;
+  };
+  /** Closing time information */
+  close?: {
+    /** Day of week (0 = Sunday, 1 = Monday, ..., 6 = Saturday) */
+    day: number;
+    /** Time in 24-hour format as 4-digit string (e.g., "1800" for 6:00 PM) */
+    time: string;
+  };
+}
+
+/**
  * Complete Google Places data for a location
  *
  * Contains all enriched data from Google Places API including
@@ -416,7 +460,11 @@ export interface GooglePlacePhoto {
  *   reviews: [...],
  *   photos: [...],
  *   price_level: 3,
- *   opening_hours: { open_now: true },
+ *   opening_hours: {
+ *     open_now: true,
+ *     weekday_text: ["Monday: 9:00 AM – 6:00 PM", ...],
+ *     periods: [...]
+ *   },
  *   website: "https://www.metmuseum.org"
  * };
  */
@@ -452,8 +500,11 @@ export interface GooglePlaceData {
     /** Whether the place is currently open */
     open_now: boolean;
 
-    /** Array of opening hours for each day of the week (optional) */
+    /** Array of opening hours for each day of the week (e.g., "Monday: 9:00 AM – 6:00 PM") */
     weekday_text?: string[];
+
+    /** Detailed periods showing opening/closing times for each day */
+    periods?: OpeningHoursPeriod[];
   };
 
   /** Formatted phone number (e.g., "(212) 535-7710") */
@@ -535,6 +586,18 @@ export interface AlternativeActivity {
 
   /** Whether the place is currently open */
   openNow?: boolean;
+
+  /** Opening hours information with day-specific validation */
+  openingHours?: {
+    /** Whether the place is currently open */
+    open_now: boolean;
+
+    /** Array of opening hours for each day of the week (e.g., "Monday: 9:00 AM – 6:00 PM") */
+    weekday_text?: string[];
+
+    /** Detailed periods showing opening/closing times for each day */
+    periods?: OpeningHoursPeriod[];
+  };
 
   /** Distance from original location in miles */
   distance: number;

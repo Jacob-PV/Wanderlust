@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, MapPin, Star, Clock, RefreshCw } from 'lucide-react';
 import { ItineraryItem, AlternativeActivity } from '@/types';
+import OpeningHoursDisplay from './OpeningHoursDisplay';
 
 interface ReplaceActivityProps {
   /** The activity to replace */
@@ -18,6 +19,9 @@ interface ReplaceActivityProps {
 
   /** City name for context */
   city: string;
+
+  /** Date of the activity (for day-specific hours validation) */
+  date?: Date;
 
   /** Original preferences used to generate itinerary */
   preferences: {
@@ -37,6 +41,7 @@ export default function ReplaceActivity({
   index,
   allActivities,
   city,
+  date,
   preferences,
   onReplace,
 }: ReplaceActivityProps) {
@@ -47,6 +52,9 @@ export default function ReplaceActivity({
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
+  // Use provided date or default to current date
+  const activityDate = date || new Date();
+
   // Ensure component is mounted (for portal)
   useEffect(() => {
     setMounted(true);
@@ -54,6 +62,7 @@ export default function ReplaceActivity({
 
   /**
    * Fetch alternative activities from Google Places
+   * Now includes date and time for opening hours validation
    */
   const findAlternatives = async () => {
     setLoadingAlternatives(true);
@@ -65,7 +74,9 @@ export default function ReplaceActivity({
           `type=${encodeURIComponent(activity.type)}&` +
           `lat=${activity.coordinates.lat}&` +
           `lng=${activity.coordinates.lng}&` +
-          `radius=8000` // 8km (~5 miles)
+          `radius=8000&` + // 8km (~5 miles)
+          `date=${activityDate.toISOString()}&` + // Pass date for day-specific validation
+          `time=${encodeURIComponent(activity.time)}` // Pass time slot for validation
       );
 
       if (!response.ok) {
@@ -74,6 +85,11 @@ export default function ReplaceActivity({
 
       const data = await response.json();
       setAlternatives(data.alternatives || []);
+
+      if (data.alternatives?.length === 0) {
+        setError(`No alternatives found that are open during ${activity.time}. Try a different time slot.`);
+      }
+
       setShowModal(true);
     } catch (err) {
       console.error('Error finding alternatives:', err);
@@ -254,21 +270,17 @@ export default function ReplaceActivity({
                               <p className="line-clamp-2">{alt.vicinity}</p>
                             </div>
 
-                            {/* Distance & Status */}
+                            {/* Distance & Opening Hours */}
                             <div className="flex flex-wrap items-center gap-3 text-sm">
                               <span className="px-2 py-1 bg-primary-100 text-primary-700 rounded-lg font-medium">
                                 {alt.distance.toFixed(1)} mi away
                               </span>
-                              {alt.openNow !== undefined && (
-                                <span
-                                  className={`px-2 py-1 rounded-lg font-medium ${
-                                    alt.openNow
-                                      ? 'bg-green-100 text-green-700'
-                                      : 'bg-red-100 text-red-700'
-                                  }`}
-                                >
-                                  {alt.openNow ? '✓ Open now' : '✗ Closed'}
-                                </span>
+                              {alt.openingHours && (
+                                <OpeningHoursDisplay
+                                  openingHours={alt.openingHours}
+                                  date={activityDate}
+                                  activityTime={activity.time}
+                                />
                               )}
                             </div>
                           </div>

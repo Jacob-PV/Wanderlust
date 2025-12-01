@@ -143,6 +143,7 @@ export async function POST(request: NextRequest) {
     detailsUrl.searchParams.append('place_id', placeId);
 
     // Request only the fields we need to minimize cost
+    // Note: opening_hours includes weekday_text and periods for validation
     const fields = [
       'place_id',
       'name',
@@ -206,6 +207,16 @@ export async function POST(request: NextRequest) {
       opening_hours: result.opening_hours ? {
         open_now: result.opening_hours.open_now ?? false,
         weekday_text: result.opening_hours.weekday_text,
+        periods: result.opening_hours.periods?.map((period: any) => ({
+          open: {
+            day: period.open.day,
+            time: period.open.time,
+          },
+          close: period.close ? {
+            day: period.close.day,
+            time: period.close.time,
+          } : undefined,
+        })),
       } : undefined,
       formatted_phone_number: result.formatted_phone_number,
       website: result.website,

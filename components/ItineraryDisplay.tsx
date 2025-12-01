@@ -18,6 +18,7 @@ import { Itinerary, ItineraryItem, EnrichedItineraryItem, GooglePlaceData, Enric
 import RatingDisplay from './RatingDisplay';
 import ReviewCard from './ReviewCard';
 import ReplaceActivity from './ReplaceActivity';
+import OpeningHoursDisplay from './OpeningHoursDisplay';
 
 interface ItineraryDisplayProps {
   itinerary: Itinerary;
@@ -66,6 +67,7 @@ interface ActivityCardProps {
   item: ItineraryItem;
   index: number;
   city: string;
+  date?: Date; // Date of the activity (for multi-day or single-day itineraries)
   allActivities: ItineraryItem[];
   onReplaceActivity?: (newItinerary: ItineraryItem[], changesSummary: string) => void;
   preferences?: {
@@ -77,11 +79,14 @@ interface ActivityCardProps {
   };
 }
 
-function ActivityCard({ item, index, city, allActivities, onReplaceActivity, preferences }: ActivityCardProps) {
+function ActivityCard({ item, index, city, date, allActivities, onReplaceActivity, preferences }: ActivityCardProps) {
   const [enrichedData, setEnrichedData] = useState<GooglePlaceData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAllReviews, setShowAllReviews] = useState(false);
+
+  // Use provided date or default to today for single-day itineraries
+  const activityDate = date || new Date();
 
   // Fetch Google Places data on mount
   useEffect(() => {
@@ -163,7 +168,7 @@ function ActivityCard({ item, index, city, allActivities, onReplaceActivity, pre
               </p>
             </div>
 
-            {/* Price Level & Open Status */}
+            {/* Price Level & Opening Hours */}
             {(enrichedData?.price_level !== undefined || enrichedData?.opening_hours) && (
               <div className="flex flex-wrap items-center gap-3 mb-3">
                 {enrichedData.price_level !== undefined && (
@@ -172,15 +177,11 @@ function ActivityCard({ item, index, city, allActivities, onReplaceActivity, pre
                   </span>
                 )}
                 {enrichedData.opening_hours && (
-                  <span
-                    className={`px-3 py-1 rounded-lg text-sm font-semibold ${
-                      enrichedData.opening_hours.open_now
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}
-                  >
-                    {enrichedData.opening_hours.open_now ? '✓ Open now' : '✗ Closed'}
-                  </span>
+                  <OpeningHoursDisplay
+                    openingHours={enrichedData.opening_hours}
+                    date={activityDate}
+                    activityTime={item.time}
+                  />
                 )}
               </div>
             )}
@@ -311,6 +312,7 @@ function ActivityCard({ item, index, city, allActivities, onReplaceActivity, pre
             index={index}
             allActivities={allActivities}
             city={city}
+            date={activityDate}
             preferences={preferences}
             onReplace={onReplaceActivity}
           />

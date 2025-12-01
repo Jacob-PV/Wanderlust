@@ -17,6 +17,7 @@ import { DayItinerary, ItineraryItem, GooglePlaceData, EnrichPlaceRequest } from
 import RatingDisplay from './RatingDisplay';
 import ReviewCard from './ReviewCard';
 import ReplaceActivity from './ReplaceActivity';
+import OpeningHoursDisplay from './OpeningHoursDisplay';
 
 interface DayNavigationProps {
   days: DayItinerary[];
@@ -67,6 +68,7 @@ interface EnhancedActivityCardProps {
   index: number;
   dayIndex: number;
   city: string;
+  date: Date; // Date of the activity
   allActivities: ItineraryItem[];
   onReplaceActivity?: (dayIndex: number, activityIndex: number, newActivity: ItineraryItem, changesSummary: string) => void;
   preferences?: {
@@ -83,6 +85,7 @@ function EnhancedActivityCard({
   index,
   dayIndex,
   city,
+  date,
   allActivities,
   onReplaceActivity,
   preferences,
@@ -204,7 +207,7 @@ function EnhancedActivityCard({
         </div>
       </div>
 
-      {/* Price Level & Open Status */}
+      {/* Price Level & Opening Hours */}
       {(enrichedData?.price_level !== undefined || enrichedData?.opening_hours) && (
         <div className="flex flex-wrap items-center gap-3 mb-4">
           {enrichedData.price_level !== undefined && (
@@ -213,15 +216,11 @@ function EnhancedActivityCard({
             </span>
           )}
           {enrichedData.opening_hours && (
-            <span
-              className={`px-3 py-1 rounded-lg text-sm font-semibold ${
-                enrichedData.opening_hours.open_now
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800'
-              }`}
-            >
-              {enrichedData.opening_hours.open_now ? '✓ Open now' : '✗ Closed'}
-            </span>
+            <OpeningHoursDisplay
+              openingHours={enrichedData.opening_hours}
+              date={date}
+              activityTime={activity.time}
+            />
           )}
         </div>
       )}
@@ -292,12 +291,13 @@ function EnhancedActivityCard({
 
       {/* Replace Activity Button */}
       {onReplaceActivity && preferences && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
+        <div className="mt-4 pt-4 border-gray-200">
           <ReplaceActivity
             activity={activity}
             index={index}
             allActivities={allActivities}
             city={city}
+            date={date}
             preferences={preferences}
             onReplace={handleReplace}
           />
@@ -377,6 +377,7 @@ export default function DayNavigation({ days, city, onReplaceActivity, preferenc
             index={index}
             dayIndex={currentDayIndex}
             city={city}
+            date={new Date(currentDay.date)}
             allActivities={currentDay.activities}
             onReplaceActivity={onReplaceActivity}
             preferences={preferences}
