@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 import ItineraryForm from '@/components/ItineraryForm';
 import ItineraryDisplay from '@/components/ItineraryDisplay';
 import DayNavigation from '@/components/DayNavigation';
+import ShareButton from '@/components/ShareButton';
 import { GenerateItineraryRequest, Itinerary, MultiDayItinerary } from '@/types';
 
 const MapView = dynamic(() => import('@/components/MapView'), {
@@ -384,7 +385,7 @@ export default function Home() {
               {multiDayItinerary ? (
                 // Multi-Day Itinerary Layout
                 <div className="space-y-8">
-                  {/* Header with regenerate button */}
+                  {/* Header with regenerate and share buttons */}
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="text-3xl md:text-4xl font-bold gradient-text mb-2">
@@ -405,12 +406,15 @@ export default function Home() {
                         </div>
                       )}
                     </div>
-                    <button
-                      onClick={handleRegenerate}
-                      className="px-4 py-2 bg-white border-2 border-gray-200 rounded-xl hover:border-coral-300 hover:bg-coral-50 transition-all duration-200 font-medium text-gray-700"
-                    >
-                      New Trip
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <ShareButton itinerary={multiDayItinerary} />
+                      <button
+                        onClick={handleRegenerate}
+                        className="px-4 py-2 bg-white border-2 border-gray-200 rounded-xl hover:border-coral-300 hover:bg-coral-50 transition-all duration-200 font-medium text-gray-700"
+                      >
+                        New Trip
+                      </button>
+                    </div>
                   </div>
 
                   {/* Map View */}

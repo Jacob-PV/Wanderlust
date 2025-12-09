@@ -15,6 +15,7 @@ A visually stunning, premium web application that generates personalized multi-d
 - **📆 Calendar Date Picker**: Visual calendar with range selection and quick-select buttons (Weekend, 3 days, 1 week, etc.)
 - **🎯 Trip Pace Control**: Choose your pace - Relaxed (3-4 activities), Moderate (5-6), or Packed (7-8 per day)
 - **🔄 Smart Activity Replacement**: Don't like a suggestion? Replace any activity with automatic schedule optimization
+- **🔗 Database-Backed Sharing**: Share itineraries with clean, short URLs (e.g., `yourapp.com/trip/a7b3x9`) with view tracking
 - **Smart Travel Time Calculation**: Accounts for realistic travel time between locations with route optimization
 - **Budget Tracking & Cost Estimates**: Set your budget, specify travelers, and get per-activity cost estimates with budget tracking
 - **City Autocomplete**: Search for cities with autocomplete powered by OpenStreetMap Nominatim
@@ -57,6 +58,7 @@ A visually stunning, premium web application that generates personalized multi-d
 - **Geocoding**: OpenStreetMap Nominatim API
 - **AI**: OpenAI API (GPT-4o-mini)
 - **Reviews & Enrichment**: Google Places API
+- **Database**: Vercel KV (Redis) for sharing
 - **Fonts**: Google Fonts (Inter & Manrope)
 - **Deployment**: Vercel-ready
 
@@ -66,6 +68,7 @@ A visually stunning, premium web application that generates personalized multi-d
 - npm or yarn package manager
 - OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
 - Google Places API key (optional, for reviews and ratings - [Setup guide](GOOGLE_SETUP.md))
+- Vercel KV database (optional, for sharing feature - [Setup guide](VERCEL_KV_SETUP.md))
 
 ## Installation
 
@@ -97,9 +100,14 @@ A visually stunning, premium web application that generates personalized multi-d
 
    # Optional (for displaying Google Place photos)
    NEXT_PUBLIC_GOOGLE_PLACES_API_KEY=your_client_google_api_key_here
+
+   # Optional (for sharing feature - added automatically by Vercel)
+   REDIS_URL=redis://default:xxxxx@your-kv-url.upstash.io:6379
    ```
 
    > **Note**: The app works without Google Places API, but adding it provides real reviews, ratings, photos, and contact information. See [GOOGLE_SETUP.md](GOOGLE_SETUP.md) for detailed setup instructions.
+
+   > **Note**: For the sharing feature, set up Vercel KV database. See [VERCEL_KV_SETUP.md](VERCEL_KV_SETUP.md) for detailed instructions.
 
 4. **Run the development server**
    ```bash
@@ -120,8 +128,9 @@ A visually stunning, premium web application that generates personalized multi-d
 4. **Set Budget** (optional): Enter your budget per person and number of travelers
 5. **Generate Itinerary**: Click the "Generate My Itinerary" button
 6. **View Results**: See your personalized itinerary with timeline and interactive map
-7. **Replace Activities**: Click "Replace this ↻" on any activity to swap it out
-8. **Regenerate**: Click "New Trip" to create a different itinerary
+7. **Share Your Itinerary**: Click the "Share" button to get a shareable link
+8. **Replace Activities**: Click "Replace this ↻" on any activity to swap it out
+9. **Regenerate**: Click "New Trip" to create a different itinerary
 
 ### Planning a Multi-Day Trip
 
@@ -139,7 +148,8 @@ A visually stunning, premium web application that generates personalized multi-d
 7. **Generate**: Click "Generate My Itinerary"
 8. **Navigate Days**: Use day tabs to browse your itinerary day-by-day
 9. **View on Map**: See all activities color-coded by day with routes connecting them
-10. **Replace Activities**: Click "Replace this ↻" on any activity card to find alternatives
+10. **Share Your Trip**: Click the "Share" button to get a short URL to share with friends and family
+11. **Replace Activities**: Click "Replace this ↻" on any activity card to find alternatives
 
 ### Understanding Day Types
 
@@ -159,8 +169,15 @@ travel_itenerary/
 │   │   │   └── route.ts          # API route for Google Places enrichment
 │   │   ├── replace-activity/
 │   │   │   └── route.ts          # API route for activity replacement
-│   │   └── find-alternatives/
-│   │       └── route.ts          # API route for finding alternative activities
+│   │   ├── find-alternatives/
+│   │   │   └── route.ts          # API route for finding alternative activities
+│   │   ├── share/
+│   │   │   └── route.ts          # API route for saving shared itineraries
+│   │   └── trip/[id]/
+│   │       └── route.ts          # API route for fetching shared itineraries
+│   ├── trip/[id]/
+│   │   ├── page.tsx              # Shared itinerary viewer page
+│   │   └── not-found.tsx         # 404 page for invalid/expired shares
 │   ├── layout.tsx                # Root layout
 │   ├── page.tsx                  # Main page component
 │   └── globals.css               # Global styles including calendar styles
@@ -172,12 +189,16 @@ travel_itenerary/
 │   ├── MapView.tsx               # Single-day interactive map
 │   ├── MultiDayMapView.tsx       # Multi-day map with color-coded routes
 │   ├── ReplaceActivity.tsx       # Activity replacement UI
+│   ├── ShareButton.tsx           # Share button with modal and social links
 │   ├── RatingDisplay.tsx         # Star rating display component
 │   └── ReviewCard.tsx            # Individual review card component
+├── lib/
+│   └── share-db.ts               # Vercel KV database utilities for sharing
 ├── types/
 │   └── index.ts                  # TypeScript type definitions
 ├── .env.example                  # Environment variables template
 ├── GOOGLE_SETUP.md               # Google Places API setup guide
+├── VERCEL_KV_SETUP.md            # Vercel KV database setup guide
 ├── CLAUDE.md                     # AI assistant context and conventions
 ├── ARCHITECTURE.md               # System architecture documentation
 ├── API.md                        # API endpoint documentation
@@ -255,8 +276,18 @@ Generates a personalized itinerary based on user preferences.
 2. **Deploy on Vercel**
    - Go to [vercel.com](https://vercel.com)
    - Import your GitHub repository
-   - Add your environment variable: `OPENAI_API_KEY`
+   - Add environment variables:
+     - `OPENAI_API_KEY` (required)
+     - `GOOGLE_PLACES_API_KEY` (optional)
+     - `NEXT_PUBLIC_GOOGLE_PLACES_API_KEY` (optional)
    - Click "Deploy"
+
+3. **Set up Vercel KV for Sharing** (optional)
+   - Go to your project → Storage → Create Database
+   - Select "KV" → Name it `itinerary-storage`
+   - Click "Connect to Project"
+   - Environment variables are added automatically
+   - See [VERCEL_KV_SETUP.md](VERCEL_KV_SETUP.md) for details
 
 Your app will be live at `https://your-project.vercel.app`
 
@@ -267,11 +298,13 @@ Your app will be live at `https://your-project.vercel.app`
 | `OPENAI_API_KEY` | Your OpenAI API key for itinerary generation | Yes |
 | `GOOGLE_PLACES_API_KEY` | Server-side Google Places API key for reviews/ratings | No (but recommended) |
 | `NEXT_PUBLIC_GOOGLE_PLACES_API_KEY` | Client-side Google Places API key for photos | No (optional) |
+| `REDIS_URL` | Vercel KV (Redis) database URL for sharing | No (for sharing) |
 
 **Notes**:
 - The app works without Google Places API keys, but adding them provides real reviews, ratings, photos, and contact information
 - See [GOOGLE_SETUP.md](GOOGLE_SETUP.md) for detailed setup instructions
 - Google provides $200/month free credit (~4,000 place enrichments)
+- `REDIS_URL` is added automatically when you create a Vercel KV database - see [VERCEL_KV_SETUP.md](VERCEL_KV_SETUP.md)
 - No Mapbox token required - uses OpenStreetMap's free Nominatim API
 
 ## Development
@@ -314,23 +347,30 @@ Understanding the costs of running this app:
 - Completely free!
 - Rate limit: 1 request/second (handled automatically)
 
+**Vercel KV (for sharing):**
+- Free tier: 30,000 commands/month (~5,000 shares + 10,000 views)
+- After free tier: $0.20 per 100,000 commands
+- Save itinerary: ~3 commands
+- Load itinerary: ~2 commands
+- Track view: ~1 command
+
 **Monthly estimate for moderate use:**
 - ~100 itineraries generated: $5-10 (OpenAI)
 - Google Places within free tier for most users
+- Vercel KV within free tier for most users
 
 ## Future Enhancements
 
-- [ ] Save/export itinerary feature
-- [ ] Share itinerary via link
 - [x] ~~Multiple day itineraries~~ ✅ **Implemented!**
 - [x] ~~Activity replacement~~ ✅ **Implemented!**
+- [x] ~~Share itinerary via link~~ ✅ **Implemented!**
+- [ ] PDF export
 - [ ] Weather integration
 - [ ] User accounts to save itineraries
-- [ ] PDF export
 - [ ] Undo/Redo for multi-day itineraries
 - [ ] Route optimization with real-time traffic
 - [ ] Booking integration (OpenTable, Resy, etc.)
-- [ ] Redis/database caching for Google Places data
+- [ ] Analytics dashboard for shared itineraries
 
 ## Technologies Used
 
@@ -345,6 +385,9 @@ Understanding the costs of running this app:
 - [date-fns](https://date-fns.org/) - Date manipulation utilities
 - [OpenAI](https://openai.com/) - AI itinerary generation
 - [Google Places API](https://developers.google.com/maps/documentation/places) - Real reviews, ratings, and place data
+- [Vercel KV](https://vercel.com/docs/storage/vercel-kv) - Redis database for sharing
+- [ioredis](https://github.com/redis/ioredis) - Redis client for Node.js
+- [nanoid](https://github.com/ai/nanoid) - Short unique ID generation
 - [OpenStreetMap](https://www.openstreetmap.org/) - Free geocoding and maps
 - [Google Fonts](https://fonts.google.com/) - Inter & Manrope typefaces
 

@@ -12,7 +12,11 @@
       "Bash(npx tsc:*)",
       "Bash(timeout 5 bash:*)",
       "Bash(test:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(if [ -f .env.local ])",
+      "Bash(then grep REDIS_URL .env.local)",
+      "Bash(else echo \".env.local file does not exist\")",
+      "Bash(fi)"
     ],
     "deny": [],
     "ask": []
